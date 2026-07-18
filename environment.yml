@@ -1,0 +1,5 @@
+name: ai-image-game
+channels:
+  - defaults
+dependencies:
+  - python=3.12
