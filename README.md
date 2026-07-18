@@ -4,7 +4,7 @@ An educational game for investigating how image modifications affect image class
 
 ## Project Status
 
-Current phase: Scope locked and engineering setup beginning.
+Current phase: Project setup complete; model integration beginning.
 
 ## Core Research Focus
 
@@ -55,3 +55,53 @@ Core Flow Demonstrator for supervisor review on 21 July 2026.
 ## Development Principle
 
 The core research scope is fixed. Detailed interaction and game features will be refined after the core technical and learning flow is operational.
+
+## Local Development
+
+### Backend
+
+```bash
+conda activate ai-image-game
+python -m uvicorn backend.app.main:app --reload
+```
+
+Backend URL:
+```text
+http://127.0.0.1:8000
+```
+
+API documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+
+Frontend URL:
+```text
+http://localhost:5173
+```
+
+
+### Tests
+
+Backend:
+```bash
+python -m pytest
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run build
+npm run lint
+```
+
