@@ -1,0 +1,8 @@
+name: ai-image-game
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - -r backend/requirements.txt
