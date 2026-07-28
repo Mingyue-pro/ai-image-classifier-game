@@ -61,8 +61,16 @@ The core research scope is fixed. Detailed interaction and game features will be
 ### Backend
 
 ```bash
+conda env create -f environment.yml
 conda activate ai-image-game
 python -m uvicorn backend.app.main:app --reload
+```
+
+If the Conda environment already exists, install or refresh the backend packages
+from the repository root:
+
+```bash
+python -m pip install -r backend/requirements.txt
 ```
 
 Backend URL:
@@ -75,6 +83,28 @@ API documentation:
 ```text
 http://127.0.0.1:8000/docs
 ```
+
+The first real classification downloads the official TorchVision
+`ResNet34_Weights.DEFAULT` weights into the local PyTorch cache. Later requests
+reuse both the cached weight file and one model instance per backend process.
+
+### Classify an Image
+
+With the backend running, upload one JPEG, PNG, or WebP image:
+
+```bash
+curl -X POST http://127.0.0.1:8000/classify \
+  -F "file=@/absolute/path/to/image.jpg"
+```
+
+Alternatively, run a single classification directly from the repository root:
+
+```bash
+python -m scripts.classify_image /absolute/path/to/image.jpg
+```
+
+Both methods return the model and weights names together with Top-1 and Top-5
+ImageNet labels, probabilities, and class indices.
 
 ### Frontend
 ```bash
@@ -104,4 +134,3 @@ cd frontend
 npm run build
 npm run lint
 ```
-

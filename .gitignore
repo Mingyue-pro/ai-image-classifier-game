@@ -43,3 +43,5 @@ data/raw/private/
 data/generated/
 cache/
 tmp/
+# Local manual test images
+data/local-test/
