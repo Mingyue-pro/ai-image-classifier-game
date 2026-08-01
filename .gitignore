@@ -45,3 +45,8 @@ cache/
 tmp/
 # Local manual test images
 data/local-test/
+
+# Local candidate case-generation data
+data/raw/candidate/
+data/perturbations/
+data/results/
