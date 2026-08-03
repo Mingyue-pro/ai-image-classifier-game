@@ -50,3 +50,6 @@ data/local-test/
 data/raw/candidate/
 data/perturbations/
 data/results/
+
+# Runtime participant images generated during game sessions
+data/runtime/
