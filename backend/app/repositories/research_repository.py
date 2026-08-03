@@ -51,6 +51,14 @@ class ResearchRepository:
             )
         )
 
+    def get_session(self, session_id: str) -> ResearchSession:
+        """Return one session or raise when it does not exist."""
+        return self._require_session(session_id)
+
+    def get_stage_run(self, stage_run_id: str) -> StageRun:
+        """Return one Stage run or raise when it does not exist."""
+        return self._require_stage_run(stage_run_id)
+
     def create_participant(
         self,
         participant_code: str,
@@ -169,6 +177,10 @@ class ResearchRepository:
             event_type=event_type,
             event_data=event_data,
         )
+        if stage_run_id is not None and event_type == "hint_opened":
+            stage_run.used_hint = True
+        if stage_run_id is not None and event_type == "fallback_shown":
+            stage_run.fallback_shown = True
         self.database_session.add(interaction_event)
         return self._commit_and_refresh(interaction_event)
 
@@ -209,7 +221,7 @@ class ResearchRepository:
         self,
         stage_run_id: str,
         *,
-        success: bool,
+        success: bool | None,
         final_top1_label: str | None = None,
         classification_restored: bool | None = None,
         completion_status: str = "completed",
