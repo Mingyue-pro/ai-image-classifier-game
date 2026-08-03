@@ -1,15 +1,29 @@
 """
 FastAPI application entry point loaded by Uvicorn.
 """
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.app.database import initialize_database
 from backend.app.routes.classify import router as classify_router
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    """Initialize persistent tables before the API accepts requests."""
+    del application
+    initialize_database()
+    yield
+
 
 # Create FastAPI app
 app = FastAPI(
     title="AI Image Classifier Game API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Configure frontend cross-origin access
