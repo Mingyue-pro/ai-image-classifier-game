@@ -1,0 +1,553 @@
+{
+  "schema_version": "1.0",
+  "cases": [
+    {
+      "case_id": "stage1-banana-patch",
+      "stage": "stage1",
+      "subject": "banana",
+      "attack_type": "patch",
+      "interaction_mode": "offline_choices",
+      "correct_label": "banana",
+      "initial_state_id": "s1-banana-patch-baseline",
+      "max_attempts": null,
+      "success_condition": "complete_prediction_and_compare_fixed_results",
+      "fallback_required": false,
+      "parameter_rules": [],
+      "states": [
+        {
+          "state_id": "s1-banana-patch-baseline",
+          "role": "baseline",
+          "requiredness": "required",
+          "initial_display": true,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/raw/candidate/banana.png",
+          "classification_path": "data/results/candidate-baseline.json",
+          "expected_top1": "banana",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s1-banana-patch-015",
+          "role": "offline_option",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/generated/patch-grid/banana-center-015.png",
+          "metadata_path": "data/results/patch-grid/banana-center-015.json",
+          "classification_path": "data/results/patch-grid.json",
+          "expected_top1": "banana",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s1-banana-patch-020",
+          "role": "offline_option",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/generated/patch-grid/banana-center-020.png",
+          "metadata_path": "data/results/patch-grid/banana-center-020.json",
+          "classification_path": "data/results/patch-grid.json",
+          "expected_top1": "banana",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s1-banana-patch-030",
+          "role": "offline_option",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/generated/patch-grid/banana-center-030.png",
+          "metadata_path": "data/results/patch-grid/banana-center-030.json",
+          "classification_path": "data/results/patch-grid.json",
+          "expected_top1": "toaster",
+          "expected_classification_changed": true
+        }
+      ]
+    },
+    {
+      "case_id": "stage1-banana-pixel",
+      "stage": "stage1",
+      "subject": "banana",
+      "attack_type": "fgsm",
+      "interaction_mode": "offline_choices",
+      "correct_label": "banana",
+      "initial_state_id": "s1-banana-pixel-baseline",
+      "max_attempts": null,
+      "success_condition": "complete_prediction_and_compare_fixed_results",
+      "fallback_required": false,
+      "parameter_rules": [],
+      "states": [
+        {
+          "state_id": "s1-banana-pixel-baseline",
+          "role": "baseline",
+          "requiredness": "required",
+          "initial_display": true,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/raw/candidate/banana.png",
+          "classification_path": "data/results/fgsm-fine/banana.json",
+          "epsilon_pixels": 0,
+          "expected_top1": "banana",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s1-banana-pixel-025",
+          "role": "offline_option",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/generated/fgsm-fine/banana/epsilon-0p25.png",
+          "classification_path": "data/results/fgsm-fine/banana.json",
+          "epsilon_pixels": 0.25,
+          "expected_top1": "banana",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s1-banana-pixel-050",
+          "role": "offline_option",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/generated/fgsm-fine/banana/epsilon-0p5.png",
+          "classification_path": "data/results/fgsm-fine/banana.json",
+          "epsilon_pixels": 0.5,
+          "expected_top1": "banana",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s1-banana-pixel-100",
+          "role": "offline_option",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/generated/fgsm-fine/banana/epsilon-001.png",
+          "classification_path": "data/results/fgsm-fine/banana.json",
+          "epsilon_pixels": 1,
+          "expected_top1": "sweatshirt",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "s1-banana-pixel-400",
+          "role": "offline_option",
+          "requiredness": "optional",
+          "initial_display": false,
+          "include_in_matrix": false,
+          "source_image_path": "data/raw/candidate/banana.png",
+          "image_path": "data/generated/fgsm-fine/banana/epsilon-004.png",
+          "classification_path": "data/results/fgsm-fine/banana.json",
+          "epsilon_pixels": 4,
+          "expected_top1": "sweatshirt",
+          "expected_classification_changed": true
+        }
+      ]
+    },
+    {
+      "case_id": "stage2-strawberry-patch",
+      "stage": "stage2",
+      "subject": "strawberry",
+      "attack_type": "patch",
+      "interaction_mode": "runtime_parameter_choices",
+      "correct_label": "strawberry",
+      "initial_state_id": "s2-strawberry-patch-initial",
+      "max_attempts": null,
+      "success_condition": "predict_run_and_compare_actual_classification",
+      "fallback_required": false,
+      "parameter_rules": [
+        {
+          "parameter": "size_fraction",
+          "control_type": "select",
+          "allowed_values": [0.1, 0.15, 0.2],
+          "initial_value": 0.15,
+          "fixed_parameters": {
+            "position_x": 0.5,
+            "position_y": 0.5
+          }
+        }
+      ],
+      "states": [
+        {
+          "state_id": "s2-strawberry-patch-initial",
+          "role": "initial_correct",
+          "requiredness": "required",
+          "initial_display": true,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/strawberry.png",
+          "image_path": "data/generated/patch-grid/strawberry-center-015.png",
+          "metadata_path": "data/results/patch-grid/strawberry-center-015.json",
+          "classification_path": "data/results/patch-grid.json",
+          "expected_top1": "strawberry",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s2-strawberry-patch-option-correct",
+          "role": "parameter_option_correct",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/strawberry.png",
+          "image_path": "data/generated/patch-grid/strawberry-center-010.png",
+          "metadata_path": "data/results/patch-grid/strawberry-center-010.json",
+          "classification_path": "data/results/patch-grid.json",
+          "expected_top1": "strawberry",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s2-strawberry-patch-option-error",
+          "role": "parameter_option_error",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/strawberry.png",
+          "image_path": "data/generated/patch-grid/strawberry-center-020.png",
+          "metadata_path": "data/results/patch-grid/strawberry-center-020.json",
+          "classification_path": "data/results/patch-grid.json",
+          "expected_top1": "purse",
+          "expected_classification_changed": true
+        }
+      ]
+    },
+    {
+      "case_id": "stage2-strawberry-pixel",
+      "stage": "stage2",
+      "subject": "strawberry",
+      "attack_type": "fgsm",
+      "interaction_mode": "runtime_parameter_choices",
+      "correct_label": "strawberry",
+      "initial_state_id": "s2-strawberry-pixel-initial",
+      "max_attempts": null,
+      "success_condition": "predict_run_and_compare_actual_classification",
+      "fallback_required": false,
+      "parameter_rules": [
+        {
+          "parameter": "epsilon_pixels",
+          "control_type": "select",
+          "allowed_values": [0, 0.25, 0.5, 0.75, 1, 2, 4],
+          "initial_value": 0.25
+        }
+      ],
+      "states": [
+        {
+          "state_id": "s2-strawberry-pixel-initial",
+          "role": "initial_correct",
+          "requiredness": "required",
+          "initial_display": true,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/strawberry.png",
+          "image_path": "data/generated/fgsm-fine/strawberry/epsilon-0p25.png",
+          "classification_path": "data/results/fgsm-fine/strawberry.json",
+          "epsilon_pixels": 0.25,
+          "expected_top1": "strawberry",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s2-strawberry-pixel-option-correct",
+          "role": "parameter_option_correct",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/strawberry.png",
+          "image_path": "data/generated/fgsm-fine/strawberry/epsilon-0p75.png",
+          "classification_path": "data/results/fgsm-fine/strawberry.json",
+          "epsilon_pixels": 0.75,
+          "expected_top1": "strawberry",
+          "expected_classification_changed": false
+        },
+        {
+          "state_id": "s2-strawberry-pixel-option-error",
+          "role": "parameter_option_error",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/strawberry.png",
+          "image_path": "data/generated/fgsm-fine/strawberry/epsilon-001.png",
+          "classification_path": "data/results/fgsm-fine/strawberry.json",
+          "epsilon_pixels": 1,
+          "expected_top1": "maillot",
+          "expected_classification_changed": true
+        }
+      ]
+    },
+    {
+      "case_id": "stage3-trafficlight-patch",
+      "stage": "stage3",
+      "subject": "traffic light",
+      "attack_type": "patch",
+      "interaction_mode": "runtime_repair",
+      "correct_label": "traffic light",
+      "initial_state_id": "s3-traffic-patch-initial",
+      "max_attempts": 3,
+      "success_condition": "top1_equals_correct_label",
+      "fallback_required": true,
+      "parameter_rules": [
+        {
+          "parameter": "position_x",
+          "control_type": "slider",
+          "allowed_values": [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
+          "initial_value": 0.4,
+          "fallback_value": 0.4
+        },
+        {
+          "parameter": "position_y",
+          "control_type": "slider",
+          "allowed_values": [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
+          "initial_value": 0.5,
+          "fallback_value": 0.5
+        },
+        {
+          "parameter": "size_fraction",
+          "control_type": "select",
+          "allowed_values": [0.1, 0.15, 0.2, 0.25, 0.3, 0.35],
+          "initial_value": 0.35,
+          "fallback_value": 0.1
+        }
+      ],
+      "states": [
+        {
+          "state_id": "s3-traffic-patch-initial",
+          "role": "initial_error",
+          "requiredness": "required",
+          "initial_display": true,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/trafficlight-cropped.png",
+          "image_path": "data/generated/patch-screen/trafficlight-cropped/trafficlight-cropped-x040-y050-s035.png",
+          "metadata_path": "data/results/patch-screen/trafficlight-cropped/trafficlight-cropped-x040-y050-s035.json",
+          "classification_path": "data/results/patch-screen/trafficlight-cropped-classification.json",
+          "expected_top1": "mailbox",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "s3-traffic-patch-ref-error",
+          "role": "validation_incorrect",
+          "requiredness": "reference",
+          "initial_display": false,
+          "include_in_matrix": false,
+          "source_image_path": "data/raw/candidate/trafficlight-cropped.png",
+          "image_path": "data/generated/patch-screen/trafficlight-cropped/trafficlight-cropped-x040-y050-s030.png",
+          "metadata_path": "data/results/patch-screen/trafficlight-cropped/trafficlight-cropped-x040-y050-s030.json",
+          "classification_path": "data/results/patch-screen/trafficlight-cropped-classification.json",
+          "expected_top1": "mailbox",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "s3-traffic-patch-fallback",
+          "role": "fallback_correct",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/trafficlight-cropped.png",
+          "image_path": "data/generated/patch-screen/trafficlight-cropped/trafficlight-cropped-x040-y050-s010.png",
+          "metadata_path": "data/results/patch-screen/trafficlight-cropped/trafficlight-cropped-x040-y050-s010.json",
+          "classification_path": "data/results/patch-screen/trafficlight-cropped-classification.json",
+          "expected_top1": "traffic light",
+          "expected_classification_changed": false
+        }
+      ]
+    },
+    {
+      "case_id": "stage3-trafficlight-pixel",
+      "stage": "stage3",
+      "subject": "traffic light",
+      "attack_type": "fgsm",
+      "interaction_mode": "runtime_repair",
+      "correct_label": "traffic light",
+      "initial_state_id": "s3-traffic-pixel-initial",
+      "max_attempts": 3,
+      "success_condition": "top1_equals_correct_label",
+      "fallback_required": true,
+      "parameter_rules": [
+        {
+          "parameter": "epsilon_pixels",
+          "control_type": "select",
+          "allowed_values": [0, 0.25, 0.5, 0.75, 1, 2, 4],
+          "initial_value": 4,
+          "fallback_value": 0.25
+        }
+      ],
+      "states": [
+        {
+          "state_id": "s3-traffic-pixel-initial",
+          "role": "initial_error",
+          "requiredness": "required",
+          "initial_display": true,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/trafficlight-cropped.png",
+          "image_path": "data/generated/fgsm-screen/trafficlight-cropped/epsilon-004.png",
+          "classification_path": "data/results/fgsm-screen/trafficlight-cropped.json",
+          "epsilon_pixels": 4,
+          "expected_top1": "shopping cart",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "s3-traffic-pixel-ref-error",
+          "role": "validation_incorrect",
+          "requiredness": "reference",
+          "initial_display": false,
+          "include_in_matrix": false,
+          "source_image_path": "data/raw/candidate/trafficlight-cropped.png",
+          "image_path": "data/generated/fgsm-screen/trafficlight-cropped/epsilon-001.png",
+          "classification_path": "data/results/fgsm-screen/trafficlight-cropped.json",
+          "epsilon_pixels": 1,
+          "expected_top1": "flagpole",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "s3-traffic-pixel-fallback",
+          "role": "fallback_correct",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/trafficlight-cropped.png",
+          "image_path": "data/generated/fgsm-screen/trafficlight-cropped/epsilon-0p25.png",
+          "classification_path": "data/results/fgsm-screen/trafficlight-cropped.json",
+          "epsilon_pixels": 0.25,
+          "expected_top1": "traffic light",
+          "expected_classification_changed": false
+        }
+      ]
+    },
+    {
+      "case_id": "transfer-icecream-patch",
+      "stage": "transfer",
+      "subject": "ice cream",
+      "attack_type": "patch",
+      "interaction_mode": "runtime_transfer",
+      "correct_label": "ice cream",
+      "initial_state_id": "transfer-icecream-patch-initial",
+      "max_attempts": 3,
+      "success_condition": "top1_equals_correct_label",
+      "fallback_required": true,
+      "parameter_rules": [
+        {
+          "parameter": "position_x",
+          "control_type": "slider",
+          "allowed_values": [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
+          "initial_value": 0.6,
+          "fallback_value": 0.5
+        },
+        {
+          "parameter": "position_y",
+          "control_type": "slider",
+          "allowed_values": [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
+          "initial_value": 0.2,
+          "fallback_value": 0.4
+        },
+        {
+          "parameter": "size_fraction",
+          "control_type": "select",
+          "allowed_values": [0.1, 0.15, 0.2, 0.25, 0.3],
+          "initial_value": 0.3,
+          "fallback_value": 0.2
+        }
+      ],
+      "states": [
+        {
+          "state_id": "transfer-icecream-patch-initial",
+          "role": "initial_error",
+          "requiredness": "required",
+          "initial_display": true,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/icecream.png",
+          "image_path": "data/generated/patch-screen/icecream/icecream-x060-y020-s030.png",
+          "metadata_path": "data/results/patch-screen/icecream/icecream-x060-y020-s030.json",
+          "classification_path": "data/results/patch-screen/icecream-classification.json",
+          "expected_top1": "toaster",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "transfer-icecream-patch-ref-error",
+          "role": "validation_incorrect",
+          "requiredness": "reference",
+          "initial_display": false,
+          "include_in_matrix": false,
+          "source_image_path": "data/raw/candidate/icecream.png",
+          "image_path": "data/generated/patch-screen/icecream/icecream-x050-y040-s025.png",
+          "metadata_path": "data/results/patch-screen/icecream/icecream-x050-y040-s025.json",
+          "classification_path": "data/results/patch-screen/icecream-classification.json",
+          "expected_top1": "toaster",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "transfer-icecream-patch-fallback",
+          "role": "fallback_correct",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/icecream.png",
+          "image_path": "data/generated/patch-screen/icecream/icecream-x050-y040-s020.png",
+          "metadata_path": "data/results/patch-screen/icecream/icecream-x050-y040-s020.json",
+          "classification_path": "data/results/patch-screen/icecream-classification.json",
+          "expected_top1": "ice cream",
+          "expected_classification_changed": false
+        }
+      ]
+    },
+    {
+      "case_id": "transfer-icecream-pixel",
+      "stage": "transfer",
+      "subject": "ice cream",
+      "attack_type": "fgsm",
+      "interaction_mode": "runtime_transfer",
+      "correct_label": "ice cream",
+      "initial_state_id": "transfer-icecream-pixel-initial",
+      "max_attempts": 3,
+      "success_condition": "top1_equals_correct_label",
+      "fallback_required": true,
+      "parameter_rules": [
+        {
+          "parameter": "epsilon_pixels",
+          "control_type": "select",
+          "allowed_values": [0, 0.25, 0.5, 0.75, 1, 2, 4],
+          "initial_value": 4,
+          "fallback_value": 0
+        }
+      ],
+      "states": [
+        {
+          "state_id": "transfer-icecream-pixel-initial",
+          "role": "initial_error",
+          "requiredness": "required",
+          "initial_display": true,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/icecream.png",
+          "image_path": "data/generated/fgsm-screen/icecream/epsilon-004.png",
+          "classification_path": "data/results/fgsm-screen/icecream.json",
+          "epsilon_pixels": 4,
+          "expected_top1": "acorn squash",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "transfer-icecream-pixel-ref-error",
+          "role": "validation_incorrect",
+          "requiredness": "reference",
+          "initial_display": false,
+          "include_in_matrix": false,
+          "source_image_path": "data/raw/candidate/icecream.png",
+          "image_path": "data/generated/fgsm-screen/icecream/epsilon-0p5.png",
+          "classification_path": "data/results/fgsm-screen/icecream.json",
+          "epsilon_pixels": 0.5,
+          "expected_top1": "acorn squash",
+          "expected_classification_changed": true
+        },
+        {
+          "state_id": "transfer-icecream-pixel-fallback",
+          "role": "fallback_correct",
+          "requiredness": "required",
+          "initial_display": false,
+          "include_in_matrix": true,
+          "source_image_path": "data/raw/candidate/icecream.png",
+          "image_path": "data/generated/fgsm-screen/icecream/epsilon-000.png",
+          "classification_path": "data/results/fgsm-screen/icecream.json",
+          "epsilon_pixels": 0,
+          "expected_top1": "ice cream",
+          "expected_classification_changed": false
+        }
+      ]
+    }
+  ]
+}
