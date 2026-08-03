@@ -83,6 +83,52 @@ class ResearchRepository:
             .limit(1)
         )
 
+    def get_session_export_records(self, session_id: str) -> dict[str, Any]:
+        """Return all anonymous records belonging to one research session."""
+        research_session = self._require_session(session_id)
+        participant = self._require_participant(research_session.participant_id)
+        stage_runs = list(
+            self.database_session.scalars(
+                select(StageRun)
+                .where(StageRun.session_id == session_id)
+                .order_by(StageRun.started_at, StageRun.id)
+            )
+        )
+        stage_run_ids = [stage_run.id for stage_run in stage_runs]
+        attempts = (
+            list(
+                self.database_session.scalars(
+                    select(Attempt)
+                    .where(Attempt.stage_run_id.in_(stage_run_ids))
+                    .order_by(Attempt.created_at, Attempt.id)
+                )
+            )
+            if stage_run_ids
+            else []
+        )
+        events = list(
+            self.database_session.scalars(
+                select(InteractionEvent)
+                .where(InteractionEvent.session_id == session_id)
+                .order_by(InteractionEvent.created_at, InteractionEvent.id)
+            )
+        )
+        responses = list(
+            self.database_session.scalars(
+                select(Response)
+                .where(Response.session_id == session_id)
+                .order_by(Response.created_at, Response.id)
+            )
+        )
+        return {
+            "participant": participant,
+            "session": research_session,
+            "stage_runs": stage_runs,
+            "attempts": attempts,
+            "events": events,
+            "responses": responses,
+        }
+
     def create_participant(
         self,
         participant_code: str,

@@ -13,6 +13,7 @@ from backend.app.case_catalog import CaseCatalog, configured_case_matrix_path
 from backend.app.database import get_database_session
 from backend.app.inference import ImageClassifier, ResNet34InferenceService
 from backend.app.game_service import GameService
+from backend.app.export_service import ResearchExportService
 from backend.app.repositories.research_repository import ResearchRepository
 
 
@@ -49,3 +50,10 @@ def get_game_service(
         project_root=project_root,
         runtime_root=project_root / "data" / "runtime",
     )
+
+
+def get_research_export_service(
+    repository: ResearchRepository = Depends(get_research_repository),
+) -> ResearchExportService:
+    """Return the serializer for one anonymous research Session."""
+    return ResearchExportService(repository)
