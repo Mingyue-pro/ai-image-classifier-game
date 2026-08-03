@@ -59,6 +59,30 @@ class ResearchRepository:
         """Return one Stage run or raise when it does not exist."""
         return self._require_stage_run(stage_run_id)
 
+    def get_attempt(self, stage_run_id: str, attempt_number: int) -> Attempt:
+        """Return one numbered Stage attempt or raise when it does not exist."""
+        attempt = self.database_session.scalar(
+            select(Attempt).where(
+                Attempt.stage_run_id == stage_run_id,
+                Attempt.attempt_number == attempt_number,
+            )
+        )
+        if attempt is None:
+            raise RecordNotFoundError(
+                f"Attempt does not exist: {stage_run_id}/{attempt_number}"
+            )
+        return attempt
+
+    def get_latest_attempt(self, stage_run_id: str) -> Attempt | None:
+        """Return the latest attempt for a Stage, or None before the first one."""
+        self._require_stage_run(stage_run_id)
+        return self.database_session.scalar(
+            select(Attempt)
+            .where(Attempt.stage_run_id == stage_run_id)
+            .order_by(Attempt.attempt_number.desc())
+            .limit(1)
+        )
+
     def create_participant(
         self,
         participant_code: str,
