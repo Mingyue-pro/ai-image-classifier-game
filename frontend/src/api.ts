@@ -3,7 +3,9 @@ import type {
   CreateSessionRequest,
   HealthResponse,
   Participant,
+  PlayerCase,
   ResearchSession,
+  StageRun,
 } from './types'
 
 
@@ -70,4 +72,25 @@ export function createSession(
     '/research/sessions',
     jsonRequest('POST', request),
   )
+}
+
+export function getPlayerCase(caseId: string): Promise<PlayerCase> {
+  return requestJson<PlayerCase>(`/game/cases/${encodeURIComponent(caseId)}`)
+}
+
+export function startStageRun(
+  sessionId: string,
+  caseId: string,
+): Promise<StageRun> {
+  return requestJson<StageRun>(
+    `/research/sessions/${encodeURIComponent(sessionId)}/stage-runs`,
+    jsonRequest('POST', { case_id: caseId }),
+  )
+}
+
+export function resolveApiUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) {
+    return path
+  }
+  return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
 }

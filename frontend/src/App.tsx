@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react'
 
-import { createParticipant, createSession, getHealth } from './api'
-import type { Participant, ResearchSession } from './types'
+import {
+  createParticipant,
+  createSession,
+  getHealth,
+  getPlayerCase,
+  startStageRun,
+} from './api'
+import { StageShell } from './components/StageShell'
+import { GAME_CASES } from './gameConfig'
+import { loadGameProgress, saveGameProgress } from './sessionStorage'
+import type { ActiveStage, Participant, ResearchSession } from './types'
 import './App.css'
 
 
@@ -14,13 +23,21 @@ function newParticipantCode(): string {
 }
 
 function App() {
+  const [restoredProgress] = useState(loadGameProgress)
   const [backendStatus, setBackendStatus] = useState('Checking...')
   const [consentConfirmed, setConsentConfirmed] = useState(false)
-  const [participant, setParticipant] = useState<Participant | null>(null)
+  const [participant, setParticipant] = useState<Participant | null>(
+    restoredProgress.participant,
+  )
   const [researchSession, setResearchSession] =
-    useState<ResearchSession | null>(null)
+    useState<ResearchSession | null>(restoredProgress.researchSession)
+  const [activeStage, setActiveStage] = useState<ActiveStage | null>(
+    restoredProgress.activeStage,
+  )
   const [isStarting, setIsStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
+  const [isLoadingStage, setIsLoadingStage] = useState(false)
+  const [stageError, setStageError] = useState<string | null>(null)
 
   useEffect(() => {
     async function checkBackend() {
@@ -34,6 +51,10 @@ function App() {
 
     void checkBackend()
   }, [])
+
+  useEffect(() => {
+    saveGameProgress({ participant, researchSession, activeStage })
+  }, [participant, researchSession, activeStage])
 
   async function startAnonymousSession() {
     if (!consentConfirmed || isStarting) {
@@ -69,6 +90,27 @@ function App() {
     }
   }
 
+  async function beginFirstStage() {
+    if (researchSession === null || isLoadingStage) {
+      return
+    }
+    setIsLoadingStage(true)
+    setStageError(null)
+    const firstCase = GAME_CASES[0]
+
+    try {
+      const playerCase = await getPlayerCase(firstCase.caseId)
+      const stageRun = await startStageRun(researchSession.id, firstCase.caseId)
+      setActiveStage({ caseIndex: 0, playerCase, stageRun })
+    } catch (error) {
+      setStageError(
+        error instanceof Error ? error.message : 'Stage 1 could not be started.',
+      )
+    } finally {
+      setIsLoadingStage(false)
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -81,7 +123,9 @@ function App() {
         </span>
       </header>
 
-      {researchSession === null ? (
+      {activeStage !== null ? (
+        <StageShell activeStage={activeStage} />
+      ) : researchSession === null ? (
         <section className="welcome-panel" aria-labelledby="welcome-title">
           <div className="welcome-copy">
             <p className="eyebrow">Interactive learning study</p>
@@ -142,8 +186,21 @@ function App() {
           </p>
           <div className="ready-check" aria-hidden="true">✓</div>
           <p className="next-step-note">
-            The Stage 1 learning flow will be connected in the next development step.
+            Your first case introduces how a fixed image change can affect a prediction.
           </p>
+          {stageError ? (
+            <p className="error-message session-error" role="alert">
+              {stageError}
+            </p>
+          ) : null}
+          <button
+            className="primary-button session-start-button"
+            type="button"
+            disabled={isLoadingStage}
+            onClick={() => void beginFirstStage()}
+          >
+            {isLoadingStage ? 'Loading Stage 1…' : 'Continue to Stage 1'}
+          </button>
         </section>
       )}
     </main>
