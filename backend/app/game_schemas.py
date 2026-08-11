@@ -44,6 +44,16 @@ class ReclassifyRequest(BaseModel):
     prediction_reason: str | None = Field(default=None, max_length=2000)
 
 
+class PreviewRequest(BaseModel):
+    tool_type: str = Field(min_length=1, max_length=64)
+    parameters: dict[str, float]
+
+
+class PreviewRead(BaseModel):
+    image_url: str
+    parameters: dict[str, float]
+
+
 class GameActionRead(BaseModel):
     attempt_number: int
     image_url: str
@@ -54,3 +64,14 @@ class GameActionRead(BaseModel):
     correct_label_is_top1: bool
     classification_restored: bool
     attempts_remaining: int | None
+
+
+class PredictedClassExampleRead(BaseModel):
+    image_url: str
+    source: str
+    alt: str
+
+
+class PredictedClassExamplesRead(BaseModel):
+    label: str
+    examples: list[PredictedClassExampleRead]

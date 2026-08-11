@@ -163,11 +163,19 @@
           "parameter": "size_fraction",
           "control_type": "select",
           "allowed_values": [0.1, 0.15, 0.2],
-          "initial_value": 0.15,
-          "fixed_parameters": {
-            "position_x": 0.5,
-            "position_y": 0.5
-          }
+          "initial_value": 0.15
+        },
+        {
+          "parameter": "position_x",
+          "control_type": "select",
+          "allowed_values": [0.4, 0.5, 0.6],
+          "initial_value": 0.5
+        },
+        {
+          "parameter": "position_y",
+          "control_type": "select",
+          "allowed_values": [0.4, 0.5, 0.6],
+          "initial_value": 0.5
         }
       ],
       "states": [
@@ -302,7 +310,7 @@
         {
           "parameter": "size_fraction",
           "control_type": "select",
-          "allowed_values": [0.1, 0.15, 0.2, 0.25, 0.3, 0.35],
+          "allowed_values": [0, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35],
           "initial_value": 0.35,
           "fallback_value": 0.1
         }
@@ -440,7 +448,7 @@
         {
           "parameter": "size_fraction",
           "control_type": "select",
-          "allowed_values": [0.1, 0.15, 0.2, 0.25, 0.3],
+          "allowed_values": [0.1, 0.15, 0.2, 0.25, 0.3, 0.35],
           "initial_value": 0.3,
           "fallback_value": 0.2
         }

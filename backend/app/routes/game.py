@@ -13,6 +13,8 @@ from backend.app.game_schemas import (
     FixedChoiceRequest,
     GameActionRead,
     PlayerCaseRead,
+    PreviewRead,
+    PreviewRequest,
     ReclassifyRequest,
 )
 from backend.app.game_service import (
@@ -125,6 +127,68 @@ def reclassify_runtime_image(
         GameConflictError,
     ) as error:
         _raise_game_http_error(error)
+
+
+@router.post(
+    "/stage-runs/{stage_run_id}/apply-fallback",
+    response_model=GameActionRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def apply_verified_fallback(
+    stage_run_id: str,
+    game_service: GameService = Depends(get_game_service),
+) -> GameActionRead:
+    try:
+        return game_service.apply_fallback(stage_run_id)
+    except (
+        CaseCatalogError,
+        RecordNotFoundError,
+        DatabaseConflictError,
+        GameAssetError,
+        GameInputError,
+        GameConflictError,
+    ) as error:
+        _raise_game_http_error(error)
+
+
+@router.post(
+    "/stage-runs/{stage_run_id}/preview",
+    response_model=PreviewRead,
+)
+def preview_runtime_image(
+    stage_run_id: str,
+    request: PreviewRequest,
+    game_service: GameService = Depends(get_game_service),
+) -> PreviewRead:
+    try:
+        return game_service.preview(stage_run_id, request.tool_type, request.parameters)
+    except (
+        CaseCatalogError,
+        RecordNotFoundError,
+        DatabaseConflictError,
+        GameAssetError,
+        GameInputError,
+        GameConflictError,
+    ) as error:
+        _raise_game_http_error(error)
+
+
+@router.get("/stage-runs/{stage_run_id}/preview/image")
+def read_preview_image(
+    stage_run_id: str,
+    game_service: GameService = Depends(get_game_service),
+) -> FileResponse:
+    try:
+        path = game_service.get_preview_image_path(stage_run_id)
+    except (
+        RecordNotFoundError,
+        CaseCatalogError,
+        GameAssetError,
+        GameInputError,
+        GameConflictError,
+    ) as error:
+        _raise_game_http_error(error)
+    return FileResponse(path, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/stage-runs/{stage_run_id}/attempts/{attempt_number}/image")

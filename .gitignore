@@ -51,5 +51,8 @@ data/raw/candidate/
 data/perturbations/
 data/results/
 
+# Local representative ImageNet class examples
+data/local-training-examples/
+
 # Runtime participant images generated during game sessions
 data/runtime/

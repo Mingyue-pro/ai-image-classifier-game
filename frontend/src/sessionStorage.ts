@@ -22,10 +22,15 @@ export function loadGameProgress(): StoredGameProgress {
   }
   try {
     const parsed = JSON.parse(stored) as Partial<StoredGameProgress>
+    const activeStage = parsed.activeStage
+    const canSafelyRestoreStage = activeStage?.stageRun.completion_status === 'in_progress'
+      && activeStage.stageRun.attempt_count === 0
     return {
       participant: parsed.participant ?? null,
       researchSession: parsed.researchSession ?? null,
-      activeStage: parsed.activeStage ?? null,
+      // A pristine Stage can be restored. Once attempts exist, the component's
+      // multi-step state cannot be reconstructed safely from this one record.
+      activeStage: canSafelyRestoreStage ? activeStage ?? null : null,
     }
   } catch {
     sessionStorage.removeItem(GAME_PROGRESS_STORAGE_KEY)

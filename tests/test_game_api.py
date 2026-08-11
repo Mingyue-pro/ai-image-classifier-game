@@ -14,7 +14,7 @@ from backend.app.database import (
     create_session_factory,
     initialize_database,
 )
-from backend.app.database_models import Attempt
+from backend.app.database_models import Attempt, InteractionEvent, StageRun
 from backend.app.dependencies import get_game_service
 from backend.app.fgsm import create_delta_bundle, save_delta_bundle
 from backend.app.game_service import GameService
@@ -93,6 +93,17 @@ def write_test_assets(project_root: Path) -> Path:
                                     "class_index": 1,
                                 },
                             },
+                            {
+                                "state_id": "fixed-correct",
+                                "role": "offline_option",
+                                "image_path": "data/source.png",
+                                "parameters": {"size_fraction": 0.15},
+                                "top1": {
+                                    "label": "banana",
+                                    "probability": 0.85,
+                                    "class_index": 0,
+                                },
+                            },
                         ],
                     },
                     {
@@ -104,11 +115,13 @@ def write_test_assets(project_root: Path) -> Path:
                         "correct_label": "traffic light",
                         "initial_state_id": "patch-error",
                         "max_attempts": 3,
+                        "fallback_required": True,
                         "parameter_rules": [
                             {
                                 "parameter": "size_fraction",
                                 "allowed_values": [0.1, 0.3],
                                 "initial_value": 0.3,
+                                "fallback_value": 0.1,
                                 "fixed_parameters": {
                                     "position_x": 0.5,
                                     "position_y": 0.5,
@@ -230,12 +243,20 @@ def test_game_api_hides_fixed_outcome_then_records_selected_result(
                 action = action_response.json()
                 assert action["top1"]["label"] == "mailbox"
                 assert action["classification_changed"] is True
+                assert action["attempts_remaining"] == 1
                 assert client.get(action["image_url"]).status_code == 200
                 duplicate = client.post(
                     f"/game/stage-runs/{stage_run_id}/apply-choice",
                     json={"state_id": "fixed-error"},
                 )
                 assert duplicate.status_code == 409
+                second = client.post(
+                    f"/game/stage-runs/{stage_run_id}/apply-choice",
+                    json={"state_id": "fixed-correct"},
+                )
+                assert second.status_code == 201
+                assert second.json()["attempt_number"] == 2
+                assert second.json()["attempts_remaining"] == 0
         finally:
             app.dependency_overrides.clear()
     database_engine.dispose()
@@ -266,6 +287,22 @@ def test_runtime_patch_and_fgsm_use_server_results_and_save_attempts(
         app.dependency_overrides[get_game_service] = lambda: service
         try:
             with TestClient(app) as client:
+                preview_response = client.post(
+                    f"/game/stage-runs/{patch_stage_id}/preview",
+                    json={
+                        "tool_type": "resize_patch",
+                        "parameters": {"size_fraction": 0.1},
+                    },
+                )
+                assert preview_response.status_code == 200
+                assert preview_response.json()["parameters"] == {
+                    "size_fraction": 0.1,
+                    "position_x": 0.5,
+                    "position_y": 0.5,
+                }
+                assert client.get(preview_response.json()["image_url"]).status_code == 200
+                assert database_session.scalars(select(Attempt)).all() == []
+
                 patch_response = client.post(
                     f"/game/stage-runs/{patch_stage_id}/reclassify",
                     json={
@@ -307,6 +344,67 @@ def test_runtime_patch_and_fgsm_use_server_results_and_save_attempts(
             assert len(attempts) == 2
             assert all(attempt.output_image_path for attempt in attempts)
             assert attempts[0].top1_after == "traffic light"
+        finally:
+            app.dependency_overrides.clear()
+    database_engine.dispose()
+
+
+def test_verified_fallback_is_available_only_after_maximum_attempts(
+    tmp_path: Path,
+) -> None:
+    matrix_path = write_test_assets(tmp_path)
+    database_engine = create_database_engine(f"sqlite:///{tmp_path / 'fallback.db'}")
+    initialize_database(database_engine)
+    session_factory = create_session_factory(database_engine)
+    with session_factory() as database_session:
+        repository = ResearchRepository(database_session)
+        stage_run_id = create_stage(
+            repository, "stage3-test-patch", "stage3", "patch"
+        )
+        service = GameService(
+            CaseCatalog(matrix_path),
+            repository,
+            FakeClassifier(["mailbox", "mailbox", "mailbox", "traffic light"]),
+            tmp_path,
+            tmp_path / "data" / "runtime",
+        )
+        app.dependency_overrides[get_game_service] = lambda: service
+        try:
+            with TestClient(app) as client:
+                early = client.post(
+                    f"/game/stage-runs/{stage_run_id}/apply-fallback", json={}
+                )
+                assert early.status_code == 409
+
+                for attempt_number in range(1, 4):
+                    response = client.post(
+                        f"/game/stage-runs/{stage_run_id}/reclassify",
+                        json={
+                            "tool_type": "resize_patch",
+                            "parameters": {"size_fraction": 0.3},
+                            "predicted_outcome": "still_incorrect",
+                            "prediction_reason": "Testing another repair idea.",
+                        },
+                    )
+                    assert response.status_code == 201
+                    assert response.json()["attempt_number"] == attempt_number
+                    assert response.json()["classification_restored"] is False
+
+                fallback = client.post(
+                    f"/game/stage-runs/{stage_run_id}/apply-fallback", json={}
+                )
+                assert fallback.status_code == 201
+                assert fallback.json()["attempt_number"] == 4
+                assert fallback.json()["parameters"]["size_fraction"] == 0.1
+                assert fallback.json()["classification_restored"] is True
+
+            stage_run = database_session.get(StageRun, stage_run_id)
+            assert stage_run is not None
+            assert stage_run.fallback_shown is True
+            assert stage_run.success is True
+            assert stage_run.attempt_count == 4
+            events = database_session.scalars(select(InteractionEvent)).all()
+            assert [event.event_type for event in events] == ["fallback_shown"]
         finally:
             app.dependency_overrides.clear()
     database_engine.dispose()
