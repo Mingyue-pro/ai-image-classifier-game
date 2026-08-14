@@ -19,6 +19,7 @@ from backend.app.game_schemas import (
     GameActionRead,
     PlayerCaseRead,
     PlayerCaseState,
+    PreviewRead,
 )
 from backend.app.image_manipulation import PatchParameters, apply_patch
 from backend.app.inference import ImageClassifier
@@ -133,12 +134,24 @@ class GameService:
         stage_run, case = self._stage_and_case(stage_run_id)
         if case.get("interaction_mode") != "offline_choices":
             raise GameConflictError("Fixed choices are only available in Stage 1")
-        if stage_run.attempt_count > 0:
-            raise GameConflictError("A Stage 1 choice has already been submitted")
         state = self._get_state(case, state_id)
         if state.get("role") != "offline_option":
             raise GameInputError("Selected state is not a player choice")
-        self._check_attempt_limit(stage_run.attempt_count, case)
+        submitted_state_ids = {
+            attempt.parameters_after.get("state_id")
+            for attempt in self.repository.get_attempts(stage_run_id)
+            if isinstance(attempt.parameters_after, dict)
+        }
+        if state_id in submitted_state_ids:
+            raise GameConflictError("This Stage 1 choice has already been submitted")
+        offline_states = [
+            candidate
+            for candidate in self._states(case)
+            if candidate.get("role") == "offline_option"
+        ]
+        fixed_test_limit = min(2, len(offline_states))
+        if stage_run.attempt_count >= fixed_test_limit:
+            raise GameConflictError("All Stage 1 choices have been submitted")
         top1 = self._prediction(state.get("top1"))
         initial_state = self._get_state(case, self._required_text(case, "initial_state_id"))
         top1_before = self._prediction(initial_state.get("top1")).label
@@ -149,7 +162,7 @@ class GameService:
             stage_run_id,
             tool_type="apply_fixed_choice",
             parameters_before=self._parameters(initial_state),
-            parameters_after=self._parameters(state),
+            parameters_after={**self._parameters(state), "state_id": state_id},
             predicted_outcome=predicted_outcome,
             prediction_reason=prediction_reason,
             top1_before=top1_before,
@@ -171,10 +184,64 @@ class GameService:
         prediction_reason: str | None,
     ) -> GameActionRead:
         """Apply a runtime Patch/FGSM state, classify it, and record trusted output."""
+        return self._reclassify_runtime(
+            stage_run_id,
+            tool_type,
+            submitted_parameters,
+            predicted_outcome,
+            prediction_reason,
+            enforce_attempt_limit=True,
+        )
+
+    def apply_fallback(self, stage_run_id: str) -> GameActionRead:
+        """Apply the configured verified repair after autonomous attempts are exhausted."""
+        stage_run, case = self._stage_and_case(stage_run_id)
+        maximum = case.get("max_attempts")
+        if not isinstance(maximum, int) or stage_run.attempt_count < maximum:
+            raise GameConflictError("Fallback is available only after maximum attempts")
+        if not case.get("fallback_required"):
+            raise GameConflictError("This case does not provide a fallback repair")
+        fallback_parameters: dict[str, float] = {}
+        for rule in self._parameter_rules(case):
+            parameter = rule.get("parameter")
+            fallback_value = rule.get("fallback_value")
+            if not isinstance(parameter, str) or not isinstance(
+                fallback_value, (int, float)
+            ):
+                raise GameAssetError("Fallback parameters are incomplete")
+            fallback_parameters[parameter] = float(fallback_value)
+        attack_type = self._required_text(case, "attack_type")
+        tool_type = "adjust_patch" if attack_type == "patch" else "change_epsilon"
+        self.repository.record_event(
+            stage_run.session_id,
+            "fallback_shown",
+            {"parameters": fallback_parameters},
+            stage_run_id,
+        )
+        return self._reclassify_runtime(
+            stage_run_id,
+            tool_type,
+            fallback_parameters,
+            "verified_fallback_will_restore",
+            "System-provided verified repair after maximum autonomous attempts.",
+            enforce_attempt_limit=False,
+        )
+
+    def _reclassify_runtime(
+        self,
+        stage_run_id: str,
+        tool_type: str,
+        submitted_parameters: dict[str, float],
+        predicted_outcome: str | None,
+        prediction_reason: str | None,
+        *,
+        enforce_attempt_limit: bool,
+    ) -> GameActionRead:
         stage_run, case = self._stage_and_case(stage_run_id)
         if case.get("interaction_mode") == "offline_choices":
             raise GameConflictError("Stage 1 uses fixed choices, not runtime reclassification")
-        self._check_attempt_limit(stage_run.attempt_count, case)
+        if enforce_attempt_limit:
+            self._check_attempt_limit(stage_run.attempt_count, case)
         attack_type = self._required_text(case, "attack_type")
         self._validate_tool(tool_type, attack_type)
         parameters = self._resolve_parameters(case, submitted_parameters)
@@ -230,6 +297,41 @@ class GameService:
             case, attempt, classification.top1, classification.top5
         )
 
+    def preview(
+        self,
+        stage_run_id: str,
+        tool_type: str,
+        submitted_parameters: dict[str, float],
+    ) -> PreviewRead:
+        """Generate a parameter preview without classifying or recording an Attempt."""
+        _, case = self._stage_and_case(stage_run_id)
+        if case.get("interaction_mode") == "offline_choices":
+            raise GameConflictError("Stage 1 uses fixed choices, not runtime previews")
+        attack_type = self._required_text(case, "attack_type")
+        self._validate_tool(tool_type, attack_type)
+        parameters = self._resolve_parameters(case, submitted_parameters)
+        if attack_type == "patch":
+            generated_image = self._generate_patch_image(case, parameters)
+        elif attack_type == "fgsm":
+            generated_image = self._generate_fgsm_image(case, parameters)
+        else:
+            raise GameInputError(f"Unsupported attack type: {attack_type}")
+        output_path = self.runtime_root / stage_run_id / "preview.png"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        generated_image.save(output_path, format="PNG")
+        return PreviewRead(
+            image_url=f"/game/stage-runs/{stage_run_id}/preview/image",
+            parameters=parameters,
+        )
+
+    def get_preview_image_path(self, stage_run_id: str) -> Path:
+        """Return the current generated preview for an in-progress StageRun."""
+        self._stage_and_case(stage_run_id)
+        path = self.runtime_root / stage_run_id / "preview.png"
+        if not path.is_file():
+            raise GameAssetError("Preview image does not exist")
+        return path
+
     def case_image_url(self, case_id: str, state_id: str) -> str:
         return f"/game/cases/{case_id}/states/{state_id}/image"
 
@@ -266,6 +368,13 @@ class GameService:
         source_path = self._trusted_project_file(
             self._required_text(initial, "source_image_path")
         )
+        if parameters["size_fraction"] == 0:
+            try:
+                with Image.open(source_path) as source:
+                    source.load()
+                    return source.convert("RGB")
+            except (UnidentifiedImageError, OSError) as error:
+                raise GameAssetError(f"Could not read Patch source image: {error}") from error
         patch_path_value = self._parameters(initial).get("patch_path")
         if not isinstance(patch_path_value, str):
             raise GameAssetError("Patch case is missing patch_path")
@@ -353,6 +462,8 @@ class GameService:
 
     def _check_attempt_limit(self, attempt_count: int, case: dict[str, Any]) -> None:
         maximum = case.get("max_attempts")
+        if case.get("interaction_mode") == "offline_choices":
+            maximum = min(2, sum(state.get("role") == "offline_option" for state in self._states(case)))
         if isinstance(maximum, int) and attempt_count >= maximum:
             raise GameConflictError("Maximum attempts reached")
 
@@ -360,6 +471,10 @@ class GameService:
         self, case: dict[str, Any], attempt: Any, top1: Prediction, top5: list[Prediction]
     ) -> GameActionRead:
         maximum = case.get("max_attempts")
+        if case.get("interaction_mode") == "offline_choices":
+            maximum = sum(
+                state.get("role") == "offline_option" for state in self._states(case)
+            )
         remaining = (
             max(0, maximum - attempt.attempt_number)
             if isinstance(maximum, int)

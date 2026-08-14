@@ -10,10 +10,12 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from backend.app.case_catalog import CaseCatalog, configured_case_matrix_path
+from backend.app.class_examples import ClassExampleCatalog
 from backend.app.database import get_database_session
 from backend.app.inference import ImageClassifier, ResNet34InferenceService
 from backend.app.game_service import GameService
 from backend.app.export_service import ResearchExportService
+from backend.app.report_service import InvestigatorReportService
 from backend.app.repositories.research_repository import ResearchRepository
 
 
@@ -34,6 +36,12 @@ def get_research_repository(
 def get_case_catalog() -> CaseCatalog:
     """Return the shared read-only validated case catalog."""
     return CaseCatalog(configured_case_matrix_path())
+
+
+@lru_cache(maxsize=1)
+def get_class_example_catalog() -> ClassExampleCatalog:
+    """Return the optional local representative-class example catalog."""
+    return ClassExampleCatalog(Path.cwd() / "data" / "local-training-examples")
 
 
 def get_game_service(
@@ -57,3 +65,11 @@ def get_research_export_service(
 ) -> ResearchExportService:
     """Return the serializer for one anonymous research Session."""
     return ResearchExportService(repository)
+
+
+def get_investigator_report_service(
+    repository: ResearchRepository = Depends(get_research_repository),
+    case_catalog: CaseCatalog = Depends(get_case_catalog),
+) -> InvestigatorReportService:
+    """Return the participant-facing report aggregator."""
+    return InvestigatorReportService(repository, case_catalog)

@@ -1,76 +1,35 @@
-import { resolveApiUrl } from '../api'
 import { GAME_CASES } from '../gameConfig'
+import { MissionHeader } from './GameUi'
 import type { ActiveStage } from '../types'
+import type { ReactNode } from 'react'
 
 
 type StageShellProps = {
   activeStage: ActiveStage
+  children: ReactNode
 }
 
-export function StageShell({ activeStage }: StageShellProps) {
+export function StageShell({ activeStage, children }: StageShellProps) {
   const config = GAME_CASES[activeStage.caseIndex]
-  const { playerCase, stageRun } = activeStage
-  const progress = ((activeStage.caseIndex + 1) / GAME_CASES.length) * 100
-
+  const { playerCase } = activeStage
+  const copy = playerCase.stage === 'stage1' ? {
+    subtitle: 'Complete four fixed investigations using Patch and Pixel modifications.',
+  } : playerCase.stage === 'stage2' ? {
+    subtitle: 'Investigate how Patch and Pixel parameter conditions affect the classifier.',
+  } : playerCase.stage === 'stage3' ? {
+    subtitle: 'Plan, test, and revise repairs for a misclassified traffic light image.',
+  } : {
+    subtitle: 'Apply the investigation process to a new ice cream image and evaluate the evidence.',
+  }
   return (
     <section className="stage-shell" aria-labelledby="stage-title">
-      <div className="stage-toolbar">
-        <div>
-          <p className="eyebrow">
-            {config.stageLabel} · {config.methodLabel}
-          </p>
-          <p className="case-counter">
-            Case {activeStage.caseIndex + 1} of {GAME_CASES.length}
-          </p>
-        </div>
-        <div
-          className="progress-track"
-          role="progressbar"
-          aria-label="Game progress"
-          aria-valuemin={0}
-          aria-valuemax={GAME_CASES.length}
-          aria-valuenow={activeStage.caseIndex + 1}
-        >
-          <span style={{ width: `${progress}%` }} />
-        </div>
-      </div>
+      <MissionHeader
+        stage={config.stageLabel}
+        title={`Investigate the ${playerCase.subject} image`}
+        subtitle={copy.subtitle}
+      />
 
-      <div className="stage-grid">
-        <div className="case-image-card">
-          <img
-            src={resolveApiUrl(playerCase.initial_image_url)}
-            alt={`${playerCase.subject} case for ${config.methodLabel} exploration`}
-          />
-          <div className="case-image-caption">
-            <span>Initial model result</span>
-            <strong>{playerCase.initial_top1.label}</strong>
-          </div>
-        </div>
-
-        <div className="stage-content-card">
-          <p className="step-label">Observe</p>
-          <h1 id="stage-title">Investigate the {playerCase.subject} image</h1>
-          <p>
-            Look at the image and the model result. In the next step, you will
-            predict what happens when the image condition changes.
-          </p>
-
-          <dl className="case-facts">
-            <div>
-              <dt>Method</dt>
-              <dd>{config.methodLabel}</dd>
-            </div>
-            <div>
-              <dt>Stage run</dt>
-              <dd>{stageRun.completion_status.replace('_', ' ')}</dd>
-            </div>
-          </dl>
-
-          <div className="stage-placeholder" role="note">
-            Stage 1 prediction and fixed-choice controls are the next implementation step.
-          </div>
-        </div>
-      </div>
+      <div className="stage-content-card stage-content-card--wide">{children}</div>
     </section>
   )
 }

@@ -83,6 +83,17 @@ class ResearchRepository:
             .limit(1)
         )
 
+    def get_attempts(self, stage_run_id: str) -> list[Attempt]:
+        """Return all attempts for one Stage in submission order."""
+        self._require_stage_run(stage_run_id)
+        return list(
+            self.database_session.scalars(
+                select(Attempt)
+                .where(Attempt.stage_run_id == stage_run_id)
+                .order_by(Attempt.attempt_number)
+            )
+        )
+
     def get_session_export_records(self, session_id: str) -> dict[str, Any]:
         """Return all anonymous records belonging to one research session."""
         research_session = self._require_session(session_id)
@@ -223,6 +234,10 @@ class ResearchRepository:
         stage_run.attempt_count = attempt_number
         stage_run.final_top1_label = top1_after
         stage_run.classification_restored = classification_restored
+        if classification_restored:
+            stage_run.success = True
+        elif stage_run.success is None:
+            stage_run.success = False
         self.database_session.add(attempt)
         return self._commit_and_refresh(attempt)
 

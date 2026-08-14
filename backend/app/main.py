@@ -9,9 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.database import initialize_database
 from backend.app.routes.classify import router as classify_router
+from backend.app.routes.class_examples import router as class_examples_router
 from backend.app.routes.exports import router as export_router
 from backend.app.routes.game import router as game_router
 from backend.app.routes.research import router as research_router
+from backend.app.routes.reports import router as report_router
 
 
 @asynccontextmanager
@@ -32,10 +34,7 @@ app = FastAPI(
 # Configure frontend cross-origin access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,7 +44,9 @@ app.add_middleware(
 app.include_router(classify_router)
 app.include_router(research_router)
 app.include_router(game_router)
+app.include_router(class_examples_router)
 app.include_router(export_router)
+app.include_router(report_router)
 
 
 @app.get("/")

@@ -44,6 +44,12 @@ const playerCase = {
       image_url: '/game/cases/stage1-banana-patch/states/patch-option/image',
       parameters: { size_fraction: 0.3 },
     },
+    {
+      state_id: 'patch-option-small',
+      role: 'offline_option',
+      image_url: '/game/cases/stage1-banana-patch/states/patch-option-small/image',
+      parameters: { size_fraction: 0.1 },
+    },
   ],
 }
 
@@ -65,6 +71,40 @@ const stageRun = {
   completed_at: null,
 }
 
+const pixelCase = {
+  ...playerCase,
+  case_id: 'stage1-banana-pixel',
+  attack_type: 'fgsm',
+  initial_state_id: 'pixel-baseline',
+  initial_image_url: '/game/cases/stage1-banana-pixel/states/pixel-baseline/image',
+  available_states: [
+    {
+      state_id: 'pixel-option',
+      role: 'offline_option',
+      image_url: '/game/cases/stage1-banana-pixel/states/pixel-option/image',
+      parameters: { epsilon_pixels: 1 },
+    },
+    {
+      state_id: 'pixel-option-weak',
+      role: 'offline_option',
+      image_url: '/game/cases/stage1-banana-pixel/states/pixel-option-weak/image',
+      parameters: { epsilon_pixels: 0.5 },
+    },
+  ],
+}
+
+const fixedChoiceResult = {
+  attempt_number: 1,
+  image_url: '/game/cases/stage1-banana-patch/states/patch-option/image',
+  top1: { label: 'toaster', probability: 0.8, class_index: 859 },
+  top5: [{ label: 'toaster', probability: 0.8, class_index: 859 }],
+  parameters: { size_fraction: 0.3 },
+  classification_changed: true,
+  correct_label_is_top1: false,
+  classification_restored: false,
+  attempts_remaining: null,
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -79,6 +119,7 @@ function installCryptoStub() {
 describe('App anonymous session onboarding', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+    window.history.replaceState({}, '', '/')
   })
 
   test('requires consent before the activity can start', async () => {
@@ -87,6 +128,14 @@ describe('App anonymous session onboarding', () => {
       vi.fn().mockResolvedValue(jsonResponse({ status: 'ok' })),
     )
     render(<App />)
+
+    expect(window.location.pathname).toBe('/agreement')
+    expect(screen.getByRole('heading', { name: /Enter the garden/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Follow the learning journey' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Participation agreement' })).toBeInTheDocument()
+    expect(screen.getByText('No name or email is requested.')).toBeInTheDocument()
+    expect(screen.getByText('Your choices, parameters, predictions, and answers are recorded.')).toBeInTheDocument()
+    expect(screen.getByText('You can stop the activity at any time.')).toBeInTheDocument()
 
     const startButton = screen.getByRole('button', { name: 'Start the activity' })
     expect(startButton).toBeDisabled()
@@ -127,9 +176,9 @@ describe('App anonymous session onboarding', () => {
     await user.click(screen.getByRole('button', { name: 'Start the activity' }))
 
     expect(
-      await screen.findByRole('heading', { name: 'You are ready for Stage 1' }),
+      await screen.findByRole('heading', { name: 'You are ready for Tutorial' }),
     ).toBeInTheDocument()
-    expect(await screen.findByText('Backend: ok')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/guided-discovery')
 
     const participantCall = fetchMock.mock.calls.find(([url]) =>
       url.toString().endsWith('/research/participants'),
@@ -190,7 +239,7 @@ describe('App anonymous session onboarding', () => {
 
     await user.click(screen.getByRole('button', { name: 'Start the activity' }))
     expect(
-      await screen.findByRole('heading', { name: 'You are ready for Stage 1' }),
+      await screen.findByRole('heading', { name: 'You are ready for Tutorial' }),
     ).toBeInTheDocument()
     const participantRequests = fetchMock.mock.calls.filter(([url]) =>
       url.toString().endsWith('/research/participants'),
@@ -208,7 +257,7 @@ describe('App anonymous session onboarding', () => {
         activeStage: null,
       }),
     )
-    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+    const fetchMock = vi.fn().mockImplementation((input: string | URL, init?: RequestInit) => {
       const url = input.toString()
       if (url.endsWith('/health')) {
         return Promise.resolve(jsonResponse({ status: 'ok' }))
@@ -216,8 +265,12 @@ describe('App anonymous session onboarding', () => {
       if (url.endsWith(`/game/cases/${playerCase.case_id}`)) {
         return Promise.resolve(jsonResponse(playerCase))
       }
+      if (url.endsWith(`/game/cases/${pixelCase.case_id}`)) {
+        return Promise.resolve(jsonResponse(pixelCase))
+      }
       if (url.endsWith(`/research/sessions/${researchSession.id}/stage-runs`)) {
-        return Promise.resolve(jsonResponse(stageRun, 201))
+        const body = JSON.parse(String(init?.body ?? '{}')) as { case_id?: string }
+        return Promise.resolve(jsonResponse(body.case_id === pixelCase.case_id ? { ...stageRun, id: 'stage-run-2', case_id: pixelCase.case_id, attack_type: 'fgsm' } : stageRun, 201))
       }
       return Promise.reject(new Error(`Unexpected request: ${url}`))
     })
@@ -227,16 +280,23 @@ describe('App anonymous session onboarding', () => {
     render(<App />)
 
     expect(
-      screen.getByRole('heading', { name: 'You are ready for Stage 1' }),
+      screen.getByRole('heading', { name: 'You are ready for Tutorial' }),
     ).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Continue to Stage 1' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Tutorial' }))
 
     expect(
       await screen.findByRole('heading', { name: 'Investigate the banana image' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Case 1 of 8')).toBeInTheDocument()
-    expect(screen.getByText('Initial model result')).toBeInTheDocument()
-    expect(screen.getByText('banana')).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/guided-discovery')
+    expect(screen.getByText(/Complete four fixed investigations/)).toBeInTheDocument()
+    expect(screen.getByText('Baseline classification')).toBeInTheDocument()
+    expect(screen.getByText('Confidence 90.0%')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Next: select a change' }))
+    const patchButtons = screen.getAllByRole('button', { name: /Patch scenario/i })
+    const pixelButtons = screen.getAllByRole('button', { name: /Pixel scenario/i })
+    expect(patchButtons).toHaveLength(2)
+    expect(pixelButtons).toHaveLength(2)
+    expect([...patchButtons, ...pixelButtons].every((button) => button.hasAttribute('disabled') === false)).toBe(true)
     expect(
       fetchMock.mock.calls.some(([url]) =>
         url.toString().endsWith('/research/participants'),
@@ -249,10 +309,118 @@ describe('App anonymous session onboarding', () => {
     expect(saved.activeStage?.stageRun?.id).toBe(stageRun.id)
   })
 
-  test('shows unavailable when the health request fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
+  test('previews a fixed Patch before trusted reclassification', async () => {
+    sessionStorage.setItem(
+      GAME_PROGRESS_STORAGE_KEY,
+      JSON.stringify({
+        participant,
+        researchSession,
+        activeStage: { caseIndex: 0, playerCase, stageRun },
+      }),
+    )
+    const completedPatchRun = {
+      ...stageRun,
+      completion_status: 'completed',
+      attempt_count: 1,
+      final_top1_label: 'toaster',
+    }
+    const pixelStageRun = {
+      ...stageRun,
+      id: 'stage-run-2',
+      case_id: pixelCase.case_id,
+      attack_type: 'fgsm',
+    }
+    const pixelChoiceResult = {
+      ...fixedChoiceResult,
+      image_url: pixelCase.available_states[0].image_url,
+      top1: { label: 'sweatshirt', probability: 0.7, class_index: 841 },
+      top5: [{ label: 'sweatshirt', probability: 0.7, class_index: 841 }],
+      parameters: { epsilon_pixels: 1 },
+    }
+    const completedPixelRun = {
+      ...pixelStageRun,
+      completion_status: 'completed',
+      attempt_count: 1,
+      final_top1_label: 'sweatshirt',
+    }
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/health')) return Promise.resolve(jsonResponse({ status: 'ok' }))
+      if (url.endsWith(`/game/stage-runs/${stageRun.id}/apply-choice`)) {
+        return Promise.resolve(jsonResponse(fixedChoiceResult, 201))
+      }
+      if (url.endsWith(`/research/stage-runs/${stageRun.id}/responses`)) {
+        return Promise.resolve(jsonResponse({ id: 'response-1' }, 201))
+      }
+      if (url.endsWith(`/research/stage-runs/${stageRun.id}`)) {
+        return Promise.resolve(jsonResponse(completedPatchRun))
+      }
+      if (url.endsWith(`/game/cases/${pixelCase.case_id}`)) {
+        return Promise.resolve(jsonResponse(pixelCase))
+      }
+      if (url.endsWith(`/game/stage-runs/${pixelStageRun.id}/apply-choice`)) {
+        return Promise.resolve(jsonResponse(pixelChoiceResult, 201))
+      }
+      if (url.endsWith(`/research/stage-runs/${pixelStageRun.id}/responses`)) {
+        return Promise.resolve(jsonResponse({ id: 'response-2' }, 201))
+      }
+      if (url.endsWith(`/research/stage-runs/${pixelStageRun.id}`)) {
+        return Promise.resolve(jsonResponse(completedPixelRun))
+      }
+      if (url.endsWith(`/research/sessions/${researchSession.id}/stage-runs`)) {
+        return Promise.resolve(jsonResponse(pixelStageRun, 201))
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
     render(<App />)
 
-    expect(await screen.findByText('Backend: unavailable')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Next: select a change' }))
+    await user.click(
+      screen.getByRole('button', {
+        name: /Patch scenario.*Size 30%/i,
+      }),
+    )
+    await user.click(
+      screen.getByRole('radio', {
+        name: 'Top-1 will change',
+      }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Lock prediction and continue' }))
+
+    expect(fetchMock.mock.calls.some(([url]) =>
+      url.toString().endsWith(`/game/stage-runs/${stageRun.id}/apply-choice`),
+    )).toBe(false)
+    await user.click(screen.getByRole('button', { name: 'Apply change' }))
+    expect(screen.getByAltText('Modified banana preview')).toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([url]) =>
+      url.toString().endsWith(`/game/stage-runs/${stageRun.id}/apply-choice`),
+    )).toBe(false)
+    await user.click(screen.getByRole('button', { name: 'Continue to Reclassify' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Compare' }))
+    expect(screen.getByText(/Reclassify the image first/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
+
+    expect(await screen.findByRole('heading', { name: 'New classification result' })).toBeInTheDocument()
+    expect(await screen.findByText('toaster')).toBeInTheDocument()
+    expect(screen.queryByText(/Prediction correct/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue to Compare' }))
+    expect(screen.getByText(/Prediction correct/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Return to Select Change' }))
+    await user.click(screen.getByRole('button', { name: /Pixel scenario.*Strength 1\/255/i }))
+    await user.click(screen.getByRole('radio', { name: 'Top-1 will change' }))
+    await user.click(screen.getByRole('button', { name: 'Lock prediction and continue' }))
+    await user.click(screen.getByRole('button', { name: 'Apply change' }))
+
+    expect(screen.getByRole('region', { name: 'Pixel Inspector for banana' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Original 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(screen.getByLabelText('Modified 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(screen.getByLabelText('Enhanced difference 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(screen.getByText(/for visual inspection only/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue to Reclassify' }))
+    expect(screen.getByRole('button', { name: 'Reclassify image' })).toBeEnabled()
   })
 })
