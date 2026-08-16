@@ -53,7 +53,7 @@ function repairCase(attackType: 'patch' | 'fgsm'): ActiveStage {
 describe('RepairInvestigationFlow', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  test('moves from a repair direction to classification without redundant prediction questions', async () => {
+  test('records the predicted repair direction before reclassifying a changed repair', async () => {
     const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
       const url = input.toString()
       const body = url.endsWith('/preview') ? { image_url: '/preview.png', parameters: {} } : {
@@ -76,7 +76,7 @@ describe('RepairInvestigationFlow', () => {
     expect(screen.getByText('Current incorrect classification')).toBeInTheDocument()
     expect(screen.getByText('mailbox')).toBeInTheDocument()
     expect(screen.getByText(/Autonomous attempts available: 3/)).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Plan this repair' }))
+    await user.click(screen.getByRole('button', { name: 'Predict a repair direction' }))
 
     expect(screen.queryByRole('radio', { name: 'Not sure yet' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('radio', { name: /Patch|size/i })).toHaveLength(3)
@@ -91,18 +91,41 @@ describe('RepairInvestigationFlow', () => {
     expect(screen.getByText('Patch repair settings')).toBeInTheDocument()
     expect(screen.getByText('3 attempts left')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Adjust the Patch size', level: 2 })).toBeInTheDocument()
+    expect(screen.queryByRole('slider', { name: 'Horizontal position' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('slider', { name: 'Vertical position' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Current Patch position: X 0.40, Y 0.50/)).toBeInTheDocument()
+    expect(screen.getByText('Change at least one repair parameter before reclassifying.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue to Reclassify' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: '10%' }))
+    expect(screen.getByRole('button', { name: 'Continue to Reclassify' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'Continue to Reclassify' }))
+    expect(screen.queryByText('For this specific modification, what do you expect the AI’s main classification judgement to do?')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
     expect((await screen.findAllByText('traffic light')).length).toBeGreaterThanOrEqual(2)
     const reclassifyCall = fetchMock.mock.calls.find(([url]) => url.toString().endsWith('/reclassify'))
     expect(JSON.parse(String(reclassifyCall?.[1]?.body))).toMatchObject({
       parameters: { size_fraction: 0.1 },
+      predicted_outcome: 'reduce_patch',
     })
-    expect(JSON.parse(String(reclassifyCall?.[1]?.body))).not.toHaveProperty('predicted_outcome')
     expect(JSON.parse(String(reclassifyCall?.[1]?.body))).not.toHaveProperty('prediction_reason')
     await user.click(screen.getByRole('button', { name: 'Continue to Compare' }))
     expect(screen.getByRole('heading', { name: 'The correct classification was restored' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Initial traffic light Patch image' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Modified traffic light Patch image' })).toBeInTheDocument()
     expect(screen.getByLabelText('Explore classification evidence for traffic light and mailbox')).toBeInTheDocument()
+  })
+
+  test('shows only the controls allowed by the selected Patch repair direction', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ image_url: '/preview.png', parameters: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    const user = userEvent.setup()
+    render(<RepairInvestigationFlow cases={[repairCase('patch'), repairCase('fgsm')]} nextError={null} onStageComplete={vi.fn()} onContinue={vi.fn()} isMovingNext={false} />)
+
+    await user.click(screen.getByRole('button', { name: 'Predict a repair direction' }))
+    await user.click(screen.getByRole('radio', { name: 'Move the Patch' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
+    expect(screen.getByRole('slider', { name: /Horizontal position/ })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: /Vertical position/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '10%' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Current Patch size: 35%/)).toBeInTheDocument()
   })
 })

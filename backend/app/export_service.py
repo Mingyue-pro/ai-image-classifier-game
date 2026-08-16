@@ -13,6 +13,7 @@ from backend.app.repositories.research_repository import ResearchRepository
 
 CSV_FIELDS = [
     "record_type",
+    "participant_id",
     "participant_code",
     "background_json",
     "session_id",
@@ -31,6 +32,7 @@ CSV_FIELDS = [
     "completed_at",
     "attempt_number",
     "tool_type",
+    "selected_factor",
     "parameters_before_json",
     "parameters_after_json",
     "predicted_outcome",
@@ -46,6 +48,13 @@ CSV_FIELDS = [
     "final_top1_label",
     "used_hint",
     "fallback_shown",
+    "completed",
+    "attempts_used",
+    "operational_success",
+    "autonomous_success",
+    "fallback_used",
+    "duration_seconds",
+    "reflection_completed",
     "inference_duration_ms",
     "event_type",
     "event_data_json",
@@ -57,6 +66,19 @@ CSV_FIELDS = [
     "answer_json",
     "created_at",
 ]
+
+
+COMPLEX_TRANSFER_CASE_ID = "complex-transfer-icecream"
+COMPLEX_TRANSFER_REFLECTION_KEYS = {
+    "complex_transfer_learning_reflection",
+    "complex_transfer_new_error_strategy",
+}
+COMPLEX_TRANSFER_FACTORS = {
+    "complex_transfer_patch": "Patch",
+    "complex_transfer_pixel": "Pixel",
+    "complex_transfer_blur": "Blur",
+}
+FALLBACK_PREDICTIONS = {"verified_fallback", "verified_fallback_will_restore"}
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -98,8 +120,9 @@ class ResearchExportService:
             responses_by_stage.setdefault(response.stage_run_id, []).append(response)
 
         return {
-            "export_version": 1,
+            "export_version": 2,
             "participant": {
+                "id": participant.id,
                 "participant_code": participant.participant_code,
                 "background": participant.background,
                 "created_at": _iso(participant.created_at),
@@ -137,9 +160,13 @@ class ResearchExportService:
         participant = records["participant"]
         session = records["session"]
         stage_by_id = {stage.id: stage for stage in records["stage_runs"]}
+        responses_by_stage: dict[str | None, list[Any]] = {}
+        for response in records["responses"]:
+            responses_by_stage.setdefault(response.stage_run_id, []).append(response)
         rows: list[dict[str, Any]] = [
             {
                 "record_type": "session",
+                "participant_id": participant.id,
                 "participant_code": participant.participant_code,
                 "background_json": _json_value(participant.background),
                 "session_id": session.id,
@@ -155,6 +182,9 @@ class ResearchExportService:
             }
         ]
         for stage in records["stage_runs"]:
+            complex_outcome = self._complex_transfer_outcome(
+                stage, responses_by_stage.get(stage.id, [])
+            )
             rows.append(
                 self._base_csv_row("stage", participant.participant_code, session, stage)
                 | {
@@ -169,6 +199,7 @@ class ResearchExportService:
                     "used_hint": stage.used_hint,
                     "fallback_shown": stage.fallback_shown,
                     "classification_restored": stage.classification_restored,
+                    **complex_outcome,
                 }
             )
         for attempt in records["attempts"]:
@@ -179,8 +210,15 @@ class ResearchExportService:
                     "record_id": attempt.id,
                     "attempt_number": attempt.attempt_number,
                     "tool_type": attempt.tool_type,
-                    "parameters_before_json": _json_value(attempt.parameters_before),
-                    "parameters_after_json": _json_value(attempt.parameters_after),
+                    "selected_factor": COMPLEX_TRANSFER_FACTORS.get(
+                        attempt.tool_type, ""
+                    ),
+                    "parameters_before_json": _json_value(
+                        self._export_parameters(attempt.tool_type, attempt.parameters_before)
+                    ),
+                    "parameters_after_json": _json_value(
+                        self._export_parameters(attempt.tool_type, attempt.parameters_after)
+                    ),
                     "predicted_outcome": attempt.predicted_outcome,
                     "prediction_reason": attempt.prediction_reason,
                     "top1_before": attempt.top1_before,
@@ -189,6 +227,7 @@ class ResearchExportService:
                     "classification_changed": attempt.classification_changed,
                     "correct_label_is_top1": attempt.correct_label_is_top1,
                     "classification_restored": attempt.classification_restored,
+                    "fallback_used": attempt.predicted_outcome in FALLBACK_PREDICTIONS,
                     "inference_duration_ms": attempt.inference_duration_ms,
                     "created_at": _iso(attempt.created_at),
                 }
@@ -235,7 +274,7 @@ class ResearchExportService:
         events: list[Any],
         responses: list[Any],
     ) -> dict[str, Any]:
-        return {
+        stage_json = {
             "id": stage.id,
             "case_id": stage.case_id,
             "stage": stage.stage,
@@ -254,14 +293,24 @@ class ResearchExportService:
             "events": [self._event_json(event) for event in events],
             "responses": [self._response_json(response) for response in responses],
         }
+        if stage.case_id == COMPLEX_TRANSFER_CASE_ID:
+            stage_json["complex_transfer_outcome"] = self._complex_transfer_outcome(
+                stage, responses
+            )
+        return stage_json
 
     def _attempt_json(self, attempt: Any) -> dict[str, Any]:
         return {
             "id": attempt.id,
             "attempt_number": attempt.attempt_number,
             "tool_type": attempt.tool_type,
-            "parameters_before": attempt.parameters_before,
-            "parameters_after": attempt.parameters_after,
+            "selected_factor": COMPLEX_TRANSFER_FACTORS.get(attempt.tool_type),
+            "parameters_before": self._export_parameters(
+                attempt.tool_type, attempt.parameters_before
+            ),
+            "parameters_after": self._export_parameters(
+                attempt.tool_type, attempt.parameters_after
+            ),
             "predicted_outcome": attempt.predicted_outcome,
             "prediction_reason": attempt.prediction_reason,
             "top1_before": attempt.top1_before,
@@ -270,6 +319,7 @@ class ResearchExportService:
             "classification_changed": attempt.classification_changed,
             "correct_label_is_top1": attempt.correct_label_is_top1,
             "classification_restored": attempt.classification_restored,
+            "fallback_used": attempt.predicted_outcome in FALLBACK_PREDICTIONS,
             "inference_duration_ms": attempt.inference_duration_ms,
             "created_at": _iso(attempt.created_at),
         }
@@ -299,6 +349,7 @@ class ResearchExportService:
     ) -> dict[str, Any]:
         return {
             "record_type": record_type,
+            "participant_id": session.participant_id,
             "participant_code": participant_code,
             "session_id": session.id,
             "game_version": session.game_version,
@@ -310,3 +361,48 @@ class ResearchExportService:
             "case_id": stage.case_id if stage is not None else "",
             "attack_type": stage.attack_type if stage is not None else "",
         }
+
+    def _complex_transfer_outcome(
+        self, stage: Any, responses: list[Any]
+    ) -> dict[str, Any]:
+        if stage.case_id != COMPLEX_TRANSFER_CASE_ID:
+            return {}
+        reflection_responses = {
+            response.question_key: response
+            for response in responses
+            if response.question_key in COMPLEX_TRANSFER_REFLECTION_KEYS
+        }
+        reflection_completed = (
+            COMPLEX_TRANSFER_REFLECTION_KEYS <= reflection_responses.keys()
+        )
+        duration_seconds: float | None = None
+        if reflection_completed:
+            reflection_finished_at = max(
+                response.created_at for response in reflection_responses.values()
+            )
+            duration_seconds = max(
+                0.0, (reflection_finished_at - stage.started_at).total_seconds()
+            )
+        completed = stage.completion_status == "completed"
+        operational_success = bool(stage.classification_restored)
+        fallback_used = bool(stage.fallback_shown)
+        return {
+            "completed": completed,
+            "attempts_used": stage.attempt_count,
+            "operational_success": operational_success,
+            "autonomous_success": operational_success and not fallback_used,
+            "fallback_used": fallback_used,
+            "duration_seconds": duration_seconds,
+            "reflection_completed": reflection_completed,
+        }
+
+    @staticmethod
+    def _export_parameters(
+        tool_type: str, parameters: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        if parameters is None or tool_type not in COMPLEX_TRANSFER_FACTORS:
+            return parameters
+        exported = dict(parameters)
+        if "patch_enabled" not in exported and "patch_size_fraction" in exported:
+            exported["patch_enabled"] = float(exported["patch_size_fraction"]) > 0
+        return exported

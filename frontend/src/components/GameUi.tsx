@@ -38,7 +38,7 @@ export function StepProgress({ steps, currentIndex }: { steps: readonly string[]
 }
 
 export function PanelTitle({ label, title, description }: { label: string; title: string; description: string }) {
-  return <div className="panel-title"><p>{label}</p><h2>{title}</h2><span>{description}</span></div>
+  return <div className="panel-title"><p>{label}{label === 'Manipulate' ? ' · This round’s repair direction' : ''}</p><h2>{title}</h2><span>{description}</span></div>
 }
 
 export function StatusBadge({ tone, children }: { tone: 'neutral' | 'success' | 'warning'; children: ReactNode }) {
@@ -49,12 +49,12 @@ export function ImagePreviewCard({ title, imageUrl, alt, details }: { title: str
   return <figure className="image-preview-card"><div className="card-heading"><strong>{title}</strong></div><img src={imageUrl} alt={alt} />{details ? <figcaption>{details}</figcaption> : null}</figure>
 }
 
-export function ClassificationResultCard({ title, prediction, correctLabel, reveal = true }: { title: string; prediction?: Prediction; correctLabel: string; reveal?: boolean }) {
+export function ClassificationResultCard({ title, prediction, correctLabel, reveal = true, details, showConfidenceExplanation = true }: { title: string; prediction?: Prediction; correctLabel: string; reveal?: boolean; details?: ReactNode; showConfidenceExplanation?: boolean }) {
   const correct = prediction?.label === correctLabel
   return (
     <section className="classification-card" aria-label={title}>
       <div className="card-heading"><strong>{title}</strong>{reveal && prediction ? <StatusBadge tone={correct ? 'success' : 'warning'}>{correct ? 'Correct' : 'Changed'}</StatusBadge> : null}</div>
-      {reveal && prediction ? <><p className="result-label">{prediction.label}</p><p className="confidence">Confidence {(prediction.probability * 100).toFixed(1)}%</p><dl><div><dt>True class</dt><dd>{correctLabel}</dd></div><div><dt>Top-1 status</dt><dd>{correct ? 'Matches true class' : 'Does not match true class'}</dd></div></dl></> : <div className="hidden-result"><ShieldCheck size={24} /><strong>Result hidden</strong><span>Reclassify to reveal the verified result.</span></div>}
+      {reveal && prediction ? <><p className="result-label">{prediction.label}</p><p className="confidence"><strong>AI confidence score:</strong> {(prediction.probability * 100).toFixed(1)}%</p>{showConfidenceExplanation ? <p className="confidence-explanation">This shows how strongly the model favours its current classification. A higher score means a stronger preference for that category, but it does not mean the result is correct.</p> : null}<dl><div><dt>True class</dt><dd>{correctLabel}</dd></div><div><dt>AI's current main classification judgement</dt><dd>{correct ? 'Matches true class' : 'Does not match true class'}</dd></div>{details}</dl></> : <div className="hidden-result"><ShieldCheck size={24} /><strong>Result hidden</strong><span>Reclassify to reveal the verified result.</span></div>}
     </section>
   )
 }

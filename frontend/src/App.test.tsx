@@ -119,7 +119,104 @@ function installCryptoStub() {
 describe('App anonymous session onboarding', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+    sessionStorage.clear()
     window.history.replaceState({}, '', '/')
+  })
+
+  test('starts the formal Complex Transfer flow from /transfer-challenge', async () => {
+    sessionStorage.setItem(
+      GAME_PROGRESS_STORAGE_KEY,
+      JSON.stringify({ participant, researchSession, activeStage: null }),
+    )
+    window.history.replaceState({}, '', '/transfer-challenge')
+    const complexRun = {
+      stage_run_id: 'complex-run-1',
+      image_url: '/game/complex-transfer-runs/complex-run-1/initial/image',
+      expected_class: 'ice cream',
+      current_top1: { label: 'toaster', probability: 0.49, class_index: 859 },
+      current_parameters: {
+        patch: { size_fraction: 0.3, position_x: 0.6, position_y: 0.2 },
+        pixel_strength: 4,
+        blur_level: 'high',
+      },
+      attempt_index: 0,
+      remaining_attempts: 5,
+      max_attempts: 5,
+      success: false,
+      finished: false,
+      exhausted: false,
+      initial_top1_label: 'toaster',
+      attempts: [],
+      reference_recoverable_parameters: {
+        patch: { size_fraction: 0.1, position_x: 0.8, position_y: 0.2 },
+        pixel_strength: 0,
+        blur_level: 'low',
+      },
+      reference_top1_label: 'ice cream',
+    }
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/health')) return Promise.resolve(jsonResponse({ status: 'ok' }))
+      if (url.endsWith(`/game/sessions/${researchSession.id}/complex-transfer`)) {
+        return Promise.resolve(jsonResponse(complexRun, 201))
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(screen.getByRole('button', { name: 'Continue to Transfer' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Investigate a new classification error' }),
+    ).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/transfer-challenge')
+    expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('toaster')
+    expect(screen.getByRole('img', { name: 'New Transfer image showing ice cream' })).toHaveAttribute(
+      'src',
+      'http://127.0.0.1:8000/game/complex-transfer-runs/complex-run-1/initial/image',
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:8000/game/sessions/session-1/complex-transfer',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(screen.queryByText('Preview the two new misclassified cases')).not.toBeInTheDocument()
+  })
+
+  test('restores a completed Complex Transfer directly into its backend Summary', async () => {
+    const completedComplexStage = {
+      caseIndex: 6,
+      playerCase: { ...playerCase, case_id: 'complex-transfer-icecream', stage: 'transfer', subject: 'ice cream', attack_type: 'complex' },
+      stageRun: { ...stageRun, id: 'complex-run-completed', case_id: 'complex-transfer-icecream', stage: 'transfer', attack_type: 'complex', completion_status: 'completed', attempt_count: 1, success: true, classification_restored: true },
+    }
+    const parameters = {
+      patch: { size_fraction: 0.1, position_x: 0.8, position_y: 0.2 },
+      pixel_strength: 0,
+      blur_level: 'low',
+    }
+    const finishedRun = {
+      stage_run_id: 'complex-run-completed', image_url: '/game/stage-runs/complex-run-completed/attempts/1/image', expected_class: 'ice cream',
+      current_top1: { label: 'ice cream', probability: 0.7, class_index: 928 }, current_parameters: parameters,
+      attempt_index: 1, remaining_attempts: 4, max_attempts: 5, success: true, finished: true, exhausted: false,
+      initial_top1_label: 'toaster', reference_recoverable_parameters: parameters, reference_top1_label: 'ice cream',
+      attempts: [{ attempt_number: 1, selected_factor: 'blur', prediction: 'restore_correct', before_parameters: { ...parameters, blur_level: 'high' }, after_parameters: parameters, before_classification: 'toaster', after_classification: 'ice cream', classification_restored: true, timestamp: '2026-08-16T08:00:00Z' }],
+    }
+    sessionStorage.setItem(GAME_PROGRESS_STORAGE_KEY, JSON.stringify({ participant, researchSession, activeStage: completedComplexStage }))
+    window.history.replaceState({}, '', '/transfer-challenge')
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((input: string | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/health')) return Promise.resolve(jsonResponse({ status: 'ok' }))
+      if (url.endsWith(`/game/sessions/${researchSession.id}/complex-transfer`)) return Promise.resolve(jsonResponse(finishedRun, 201))
+      if (url.endsWith('/game/complex-transfer-runs/complex-run-completed/reflection')) return Promise.resolve(jsonResponse({ stage_run_id: 'complex-run-completed', completed: false, learning_reflection: null, new_error_strategy: null }))
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    }))
+
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Classification restored' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Transfer result' })).toHaveTextContent('1 / 5')
+    expect(screen.queryByRole('button', { name: 'Reclassify image' })).not.toBeInTheDocument()
   })
 
   test('requires consent before the activity can start', async () => {
@@ -290,7 +387,7 @@ describe('App anonymous session onboarding', () => {
     expect(window.location.pathname).toBe('/guided-discovery')
     expect(screen.getByText(/Complete four fixed investigations/)).toBeInTheDocument()
     expect(screen.getByText('Baseline classification')).toBeInTheDocument()
-    expect(screen.getByText('Confidence 90.0%')).toBeInTheDocument()
+    expect(screen.getByText('AI confidence score:').parentElement).toHaveTextContent('90.0%')
     await user.click(screen.getByRole('button', { name: 'Next: select a change' }))
     const patchButtons = [screen.getByRole('button', { name: /Small Patch/i }), screen.getByRole('button', { name: /Large Patch/i })]
     const pixelButtons = [screen.getByRole('button', { name: /Low-strength Pixel change/i }), screen.getByRole('button', { name: /High-strength Pixel change/i })]
@@ -385,7 +482,7 @@ describe('App anonymous session onboarding', () => {
     )
     await user.click(
       screen.getByRole('radio', {
-        name: 'Top-1 will change',
+        name: "The AI's main judgement will change",
       }),
     )
     await user.click(screen.getByRole('button', { name: 'Lock prediction and continue' }))
@@ -411,12 +508,13 @@ describe('App anonymous session onboarding', () => {
 
     await user.click(screen.getByRole('button', { name: 'Return to Select Change' }))
     await user.click(screen.getByRole('button', { name: /High-strength Pixel change/i }))
-    await user.click(screen.getByRole('radio', { name: 'Top-1 will change' }))
+    await user.click(screen.getByRole('radio', { name: "The AI's main judgement will change" }))
     await user.click(screen.getByRole('button', { name: 'Lock prediction and continue' }))
     await user.click(screen.getByRole('button', { name: 'Apply change' }))
 
     expect(screen.getByRole('region', { name: 'Pixel Inspector for banana' })).toBeInTheDocument()
     expect(screen.getByLabelText('Original 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Initial attacked 32 by 32 Pixel crop')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Modified 32 by 32 Pixel crop')).toBeInTheDocument()
     expect(screen.getByLabelText('Enhanced difference 32 by 32 Pixel crop')).toBeInTheDocument()
     expect(screen.getByText(/for visual inspection only/i)).toBeInTheDocument()

@@ -77,4 +77,24 @@ describe('StageTwoFlow', () => {
     expect(screen.getByRole('button', { name: 'Back to variable choice' })).toBeInTheDocument()
     vi.unstubAllGlobals()
   })
+
+  test('shows Stage 2 Pixel as a fixed Observe-to-current comparison with numeric strengths', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ image_url: '/preview.png', parameters: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
+    const user = userEvent.setup()
+    render(<StageTwoFlow cases={[activeCase('patch'), activeCase('fgsm')]} nextError={null} onStageComplete={vi.fn()} onContinue={vi.fn()} isMovingNext={false} />)
+
+    await user.click(screen.getByRole('tab', { name: /Pixel.*Attack strength/i }))
+    await user.click(screen.getByRole('button', { name: 'Continue with Pixel' }))
+
+    expect(screen.getByLabelText('About Pixel modification')).toHaveTextContent('small adjustments to the RGB values')
+    expect(screen.getByLabelText('Available Pixel strengths')).toHaveTextContent('0.25/255Starting value')
+    expect(screen.getByLabelText('Available Pixel strengths')).toHaveTextContent('0.5/255')
+    expect(screen.queryByText('Weak')).not.toBeInTheDocument()
+    expect(screen.queryByText('Strong')).not.toBeInTheDocument()
+    expect(screen.getByText('1. Before selected crop')).toBeInTheDocument()
+    expect(screen.getByText('2. After selected crop')).toBeInTheDocument()
+    expect(screen.getByLabelText('Before strength 0.25/255, after strength 0.25/255')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/Current strength/)).not.toBeInTheDocument()
+    vi.unstubAllGlobals()
+  })
 })

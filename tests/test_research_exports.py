@@ -103,7 +103,7 @@ def test_json_export_is_nested_complete_and_excludes_local_paths(
     assert response.status_code == 200
     assert response.headers["content-disposition"].endswith(f'{session_id}.json"')
     payload = response.json()
-    assert payload["export_version"] == 1
+    assert payload["export_version"] == 2
     assert payload["participant"]["participant_code"] == "P-EXPORT-01"
     assert payload["session"]["id"] == session_id
     assert len(payload["stage_runs"]) == 1

@@ -41,6 +41,7 @@ data/raw/private/
 
 # Generated images and cache
 data/generated/
+experiments/output/
 cache/
 tmp/
 # Local manual test images

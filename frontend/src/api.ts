@@ -1,6 +1,10 @@
 import type {
   CreateParticipantRequest,
   CreateSessionRequest,
+  ComplexTransferAction,
+  ComplexTransferApiParameters,
+  ComplexTransferRun,
+  ComplexTransferReflection,
   FixedChoiceRequest,
   GameAction,
   HealthResponse,
@@ -99,6 +103,29 @@ export function getPlayerCase(caseId: string): Promise<PlayerCase> {
   return requestJson<PlayerCase>(`/game/cases/${encodeURIComponent(caseId)}`)
 }
 
+export function initializeComplexTransfer(sessionId: string): Promise<ComplexTransferRun> {
+  return requestJson<ComplexTransferRun>(`/game/sessions/${encodeURIComponent(sessionId)}/complex-transfer`, jsonRequest('POST', {}))
+}
+
+export function previewComplexTransfer(stageRunId: string, selectedFactor: string, parameters: ComplexTransferApiParameters): Promise<{ image_url: string; parameters: ComplexTransferApiParameters }> {
+  return requestJson(`/game/complex-transfer-runs/${encodeURIComponent(stageRunId)}/preview`, jsonRequest('POST', { selected_factor: selectedFactor, parameters }))
+}
+
+export function reclassifyComplexTransfer(stageRunId: string, request: { selected_factor: string; parameters: ComplexTransferApiParameters; prediction: string; prediction_reason?: string }): Promise<ComplexTransferAction> {
+  return requestJson<ComplexTransferAction>(`/game/complex-transfer-runs/${encodeURIComponent(stageRunId)}/reclassify`, jsonRequest('POST', request))
+}
+
+export function getComplexTransferReflection(stageRunId: string): Promise<ComplexTransferReflection> {
+  return requestJson<ComplexTransferReflection>(`/game/complex-transfer-runs/${encodeURIComponent(stageRunId)}/reflection`)
+}
+
+export function saveComplexTransferReflection(stageRunId: string, request: { learning_reflection: string; new_error_strategy: string }): Promise<ComplexTransferReflection> {
+  return requestJson<ComplexTransferReflection>(
+    `/game/complex-transfer-runs/${encodeURIComponent(stageRunId)}/reflection`,
+    jsonRequest('POST', request),
+  )
+}
+
 export function getPredictedClassExamples(label: string): Promise<PredictedClassExamples> {
   return requestJson<PredictedClassExamples>(
     `/game/predicted-classes/${encodeURIComponent(label)}/examples`,
@@ -153,6 +180,17 @@ export function saveStageResponse(
   return requestJson(
     `/research/stage-runs/${encodeURIComponent(stageRunId)}/responses`,
     jsonRequest('POST', request),
+  )
+}
+
+export function recordStageEvent(
+  stageRunId: string,
+  eventType: string,
+  eventData: Record<string, unknown>,
+): Promise<unknown> {
+  return requestJson(
+    `/research/stage-runs/${encodeURIComponent(stageRunId)}/events`,
+    jsonRequest('POST', { event_type: eventType, event_data: eventData }),
   )
 }
 
