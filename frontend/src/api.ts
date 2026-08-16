@@ -183,6 +183,17 @@ export function saveStageResponse(
   )
 }
 
+export function recordStageEvent(
+  stageRunId: string,
+  eventType: string,
+  eventData: Record<string, unknown>,
+): Promise<unknown> {
+  return requestJson(
+    `/research/stage-runs/${encodeURIComponent(stageRunId)}/events`,
+    jsonRequest('POST', { event_type: eventType, event_data: eventData }),
+  )
+}
+
 export function updateStageRun(stageRunId: string, completionStatus: 'completed' | 'exited'): Promise<StageRun> {
   return requestJson<StageRun>(
     `/research/stage-runs/${encodeURIComponent(stageRunId)}`,

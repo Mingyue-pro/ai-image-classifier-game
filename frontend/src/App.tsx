@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowRight, Compass, FlaskConical, Leaf, Search, ShieldCheck } from 'lucide-react'
 
@@ -11,6 +11,7 @@ import {
   initializeComplexTransfer,
   previewComplexTransfer,
   reclassifyComplexTransfer,
+  recordStageEvent,
   saveComplexTransferReflection,
   resolveApiUrl,
   startStageRun,
@@ -21,6 +22,7 @@ import { StageTwoFlow } from './components/StageTwoFlow'
 import { RepairInvestigationFlow } from './components/RepairInvestigationFlow'
 import { ComplexTransferFlow } from './components/ComplexTransferFlow'
 import type { ComplexTransferManipulation, ComplexTransferParameters, ComplexTransferPlan } from './components/ComplexTransferFlow'
+import type { ComplexTransferTimingEvent } from './hooks/useComplexTransferTiming'
 import { InvestigatorReport } from './components/InvestigatorReport'
 import { AppHeader } from './components/GameUi'
 import { GAME_CASES } from './gameConfig'
@@ -403,6 +405,16 @@ function GameApplication() {
     setComplexTransferRun(refreshed)
   }
 
+  const complexTransferStageRunId = complexTransferRun?.stage_run_id ?? null
+  const recordComplexTransferTiming = useCallback((event: ComplexTransferTimingEvent) => {
+    if (!complexTransferStageRunId) return
+    void recordStageEvent(complexTransferStageRunId, event.eventType, event.eventData)
+      .catch((error: unknown) => {
+        // Timing must never interrupt the participant's investigation flow.
+        console.warn('Complex Transfer timing event could not be saved.', error)
+      })
+  }, [complexTransferStageRunId])
+
   async function submitComplexTransferReflection(answers: { learningReflection: string; newErrorStrategy: string }) {
     if (!complexTransferRun) throw new Error('Complex Transfer is not initialized.')
     const saved = await saveComplexTransferReflection(complexTransferRun.stage_run_id, {
@@ -481,7 +493,7 @@ function GameApplication() {
             priorSummaries={stageOneSummaries}
             onStageComplete={finishStageOne}
             onContinue={() => void beginStageTwo()}
-          /> : activeStage.playerCase.stage === 'stage2' ? stageTwoCases.length < 2 ? <p className="loading-message">Loading both Condition Investigation experiments…</p> : <StageTwoFlow cases={stageTwoCases} nextError={stageError} onStageComplete={finishStageTwo} onContinue={() => void beginStageThree()} isMovingNext={isLoadingStage} /> : activeStage.playerCase.stage === 'stage3' ? stageThreeCases.length < 2 ? <p className="loading-message">Loading both Repair Investigation cases…</p> : <RepairInvestigationFlow cases={stageThreeCases} nextError={stageError} onStageComplete={finishStageThree} onContinue={() => void beginTransfer()} isMovingNext={isLoadingStage} /> : complexTransferRun && (!complexTransferRun.finished || complexTransferReflection !== null) ? <ComplexTransferFlow imageUrl={resolveApiUrl(complexTransferRun.image_url)} originalImageUrl={resolveApiUrl(complexTransferRun.original_image_url ?? complexTransferRun.image_url)} subject="ice cream" currentPrediction={complexTransferRun.current_top1} attemptIndex={complexTransferRun.attempt_index} maxAttempts={complexTransferRun.max_attempts} initialClassification={complexTransferRun.initial_top1_label} attemptHistory={complexTransferRun.attempts} runFinished={complexTransferRun.finished} runSuccess={complexTransferRun.success} referenceParameters={complexParameters(complexTransferRun.reference_recoverable_parameters)} referenceTop1Label={complexTransferRun.reference_top1_label} currentParameters={complexParameters(complexTransferRun.current_parameters)} onPlanConfirmed={() => undefined} onPreview={previewComplexManipulation} onReclassify={runComplexReclassification} onDecideNext={refreshComplexTransferForNextAttempt} reflectionCompleted={complexTransferReflection?.completed ?? false} onSubmitReflection={submitComplexTransferReflection} onViewReport={viewInvestigatorReport} /> : <p className="loading-message">Loading Complex Transfer…</p>}
+          /> : activeStage.playerCase.stage === 'stage2' ? stageTwoCases.length < 2 ? <p className="loading-message">Loading both Condition Investigation experiments…</p> : <StageTwoFlow cases={stageTwoCases} nextError={stageError} onStageComplete={finishStageTwo} onContinue={() => void beginStageThree()} isMovingNext={isLoadingStage} /> : activeStage.playerCase.stage === 'stage3' ? stageThreeCases.length < 2 ? <p className="loading-message">Loading both Repair Investigation cases…</p> : <RepairInvestigationFlow cases={stageThreeCases} nextError={stageError} onStageComplete={finishStageThree} onContinue={() => void beginTransfer()} isMovingNext={isLoadingStage} /> : complexTransferRun && (!complexTransferRun.finished || complexTransferReflection !== null) ? <ComplexTransferFlow imageUrl={resolveApiUrl(complexTransferRun.image_url)} originalImageUrl={resolveApiUrl(complexTransferRun.original_image_url ?? complexTransferRun.image_url)} subject="ice cream" currentPrediction={complexTransferRun.current_top1} attemptIndex={complexTransferRun.attempt_index} maxAttempts={complexTransferRun.max_attempts} initialClassification={complexTransferRun.initial_top1_label} attemptHistory={complexTransferRun.attempts} runFinished={complexTransferRun.finished} runSuccess={complexTransferRun.success} referenceParameters={complexParameters(complexTransferRun.reference_recoverable_parameters)} referenceTop1Label={complexTransferRun.reference_top1_label} currentParameters={complexParameters(complexTransferRun.current_parameters)} onPlanConfirmed={() => undefined} onPreview={previewComplexManipulation} onReclassify={runComplexReclassification} onDecideNext={refreshComplexTransferForNextAttempt} reflectionCompleted={complexTransferReflection?.completed ?? false} onSubmitReflection={submitComplexTransferReflection} onViewReport={viewInvestigatorReport} onTimingEvent={recordComplexTransferTiming} /> : <p className="loading-message">Loading Complex Transfer…</p>}
         </StageShell>
       ) : (
         <section className="session-ready" aria-labelledby="session-ready-title">

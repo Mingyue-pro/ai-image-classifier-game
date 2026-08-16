@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { ComplexTransferAttempt, Prediction } from '../types'
 import { ClassificationResultCard, ImagePreviewCard, PanelTitle } from './GameUi'
 import { PixelInspector } from './PixelInspector'
+import { useComplexTransferTiming } from '../hooks/useComplexTransferTiming'
+import type { ComplexTransferTimingEvent, TimedTransferFactor } from '../hooks/useComplexTransferTiming'
 
 
 export type ComplexTransferFactor = 'patch' | 'pixel' | 'blur' | 'not_sure'
@@ -61,6 +63,7 @@ type ComplexTransferFlowProps = {
   reflectionCompleted?: boolean
   onSubmitReflection?: (answers: { learningReflection: string; newErrorStrategy: string }) => Promise<void>
   onViewReport?: () => Promise<void>
+  onTimingEvent?: (event: ComplexTransferTimingEvent) => void
 }
 
 const INITIAL_PARAMETERS: ComplexTransferParameters = {
@@ -99,7 +102,7 @@ const PREDICTION_OPTIONS: Array<[ComplexTransferPrediction, string]> = [
   ['not_sure', 'Not sure'],
 ]
 
-export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, attemptIndex = 0, maxAttempts = 5, initialClassification = currentPrediction.label, attemptHistory = [], runFinished = false, runSuccess = false, referenceParameters, referenceTop1Label = subject, onPlanConfirmed, currentParameters = INITIAL_PARAMETERS, onManipulationConfirmed, onPreview, onReclassify, onDecideNext, reflectionCompleted = false, onSubmitReflection, onViewReport }: ComplexTransferFlowProps) {
+export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, attemptIndex = 0, maxAttempts = 5, initialClassification = currentPrediction.label, attemptHistory = [], runFinished = false, runSuccess = false, referenceParameters, referenceTop1Label = subject, onPlanConfirmed, currentParameters = INITIAL_PARAMETERS, onManipulationConfirmed, onPreview, onReclassify, onDecideNext, reflectionCompleted = false, onSubmitReflection, onViewReport, onTimingEvent }: ComplexTransferFlowProps) {
   const [phase, setPhase] = useState<'observe' | 'plan' | 'manipulate' | 'reclassify' | 'compare' | 'decide' | 'summary' | 'reflection' | 'complete'>(reflectionCompleted ? 'complete' : runFinished ? 'summary' : 'observe')
   const [selectedFactor, setSelectedFactor] = useState<ComplexTransferFactor | ''>('')
   const [activeFactor, setActiveFactor] = useState<Exclude<ComplexTransferFactor, 'not_sure'> | ''>('')
@@ -122,6 +125,17 @@ export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, atte
   const [isSubmittingReflection, setIsSubmittingReflection] = useState(false)
   const [reflectionError, setReflectionError] = useState<string | null>(null)
   const reflectionSubmittingRef = useRef(false)
+  const timingFactor: TimedTransferFactor = activeFactor || (phase === 'plan' && selectedFactor && selectedFactor !== 'not_sure' ? selectedFactor : null) || (phase === 'decide' && nextFactor ? nextFactor : null) || pendingManipulation?.selectedFactor || null
+  const timingAttemptIndex = phase === 'compare' && reclassifyResult
+    ? reclassifyResult.attemptIndex
+    : ['plan', 'manipulate', 'reclassify', 'decide'].includes(phase)
+      ? Math.min(attemptIndex + 1, maxAttempts)
+      : attemptIndex
+
+  useComplexTransferTiming(
+    { page: phase, factor: timingFactor, attemptIndex: timingAttemptIndex },
+    onTimingEvent,
+  )
 
   async function submitReflection() {
     if (!learningReflection.trim() || !newErrorStrategy.trim() || !onSubmitReflection || reflectionSubmittingRef.current) return

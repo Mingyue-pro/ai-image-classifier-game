@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { expect, test, vi } from 'vitest'
 
@@ -73,6 +73,46 @@ test('records both choices while keeping the short reason optional', async () =>
   expect(onPlanConfirmed).toHaveBeenCalledWith({ selectedFactor: 'blur', prediction: 'stay_same', reason: null })
   expect(screen.getByRole('heading', { name: 'Adjust the blur' })).toBeInTheDocument()
   expect(screen.getByText('Please make a change before reclassifying.')).toBeInTheDocument()
+})
+
+
+test('records page visits and a factor-specific Manipulate duration without creating an Attempt', async () => {
+  const user = userEvent.setup()
+  const onTimingEvent = vi.fn()
+  const onManipulationConfirmed = vi.fn()
+  render(<ComplexTransferFlow
+    imageUrl="/complex-transfer.png"
+    subject="ice cream"
+    currentPrediction={{ label: 'toaster', probability: 0.49, class_index: 859 }}
+    onPlanConfirmed={vi.fn()}
+    onManipulationConfirmed={onManipulationConfirmed}
+    onTimingEvent={onTimingEvent}
+  />)
+
+  await user.click(screen.getByRole('button', { name: 'Plan the first investigation' }))
+  await waitFor(() => expect(onTimingEvent).toHaveBeenCalledWith(expect.objectContaining({
+    eventType: 'complex_transfer_page_visit',
+    eventData: expect.objectContaining({ page_key: 'observe', attempt_index: 0 }),
+  })))
+
+  await user.click(screen.getByRole('radio', { name: 'Pixel-level modification' }))
+  await user.click(screen.getByRole('radio', { name: 'The AI may stay the same' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
+  await user.click(screen.getByRole('button', { name: /Medium.*2\/255/i }))
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
+
+  await waitFor(() => expect(onTimingEvent).toHaveBeenCalledWith(expect.objectContaining({
+    eventType: 'complex_transfer_factor_duration',
+    eventData: expect.objectContaining({
+      page_key: 'manipulate',
+      factor: 'pixel',
+      attempt_index: 1,
+      duration_scope: 'manipulate_page',
+      active_duration_ms: expect.any(Number),
+      elapsed_duration_ms: expect.any(Number),
+    }),
+  })))
+  expect(onManipulationConfirmed).toHaveBeenCalledTimes(1)
 })
 
 
