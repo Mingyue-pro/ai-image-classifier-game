@@ -17,6 +17,7 @@ from backend.app.game_service import GameService
 from backend.app.export_service import ResearchExportService
 from backend.app.report_service import InvestigatorReportService
 from backend.app.repositories.research_repository import ResearchRepository
+from backend.app.complex_transfer_service import ComplexTransferService
 
 
 @lru_cache(maxsize=1)
@@ -58,6 +59,14 @@ def get_game_service(
         project_root=project_root,
         runtime_root=project_root / "data" / "runtime",
     )
+
+
+def get_complex_transfer_service(
+    repository: ResearchRepository = Depends(get_research_repository),
+    classifier: ImageClassifier = Depends(get_inference_service),
+) -> ComplexTransferService:
+    project_root = Path.cwd().resolve()
+    return ComplexTransferService(repository, classifier, project_root, project_root / "data" / "runtime")
 
 
 def get_research_export_service(

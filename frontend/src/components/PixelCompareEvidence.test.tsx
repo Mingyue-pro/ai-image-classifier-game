@@ -26,4 +26,18 @@ describe('PixelCompareEvidence', () => {
     expect(screen.getByText(/lower strength is not a guaranteed fix/)).toBeInTheDocument()
     expect(screen.queryByText('Strength: 0/255')).not.toBeInTheDocument()
   })
+
+  test('can use the current composite state as the Transfer crop-selection image', () => {
+    render(<PixelCompareEvidence beforeImageUrl="current-state.png" beforeStrength={4} beforePrediction={{ label: 'toaster', probability: 0.49, class_index: 1 }} afterImageUrl="adjusted.png" afterStrength={2} afterPrediction={{ label: 'eggnog', probability: 0.4, class_index: 2 }} correctLabel="ice cream" subject="ice cream" classificationRestored={false} cropSelectionSource="attacked" cropSelectionLabel="Current investigation state" />)
+
+    expect(screen.getByText(/Click the Current investigation state image below/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Select a 32 by 32 comparison crop from the Current investigation state image')).toBeInTheDocument()
+  })
+
+  test('can hide repeated confidence guidance in the Stage 3 three-state comparison', () => {
+    render(<PixelCompareEvidence beforeImageUrl="before.png" beforeStrength={4} beforePrediction={{ label: 'flagpole', probability: 0.25, class_index: 1 }} afterImageUrl="after.png" afterStrength={1} afterPrediction={{ label: 'traffic light', probability: 0.58, class_index: 2 }} correctLabel="traffic light" subject="traffic light" classificationRestored showConfidenceExplanation={false} />)
+
+    expect(screen.getAllByText('AI confidence score:')).toHaveLength(2)
+    expect(screen.queryByText(/This shows how strongly the model favours/)).not.toBeInTheDocument()
+  })
 })

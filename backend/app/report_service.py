@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import Any
 
 from backend.app.case_catalog import CaseCatalog
+from backend.app.complex_transfer_service import EXPECTED_CLASS, REFERENCE_PARAMETERS
 from backend.app.repositories.research_repository import ResearchRepository
 
 
@@ -19,6 +20,18 @@ STAGE_NAMES = {
     "stage3": "Repair Investigation",
     "transfer": "Transfer",
 }
+COMPLEX_TRANSFER_CASE_ID = "complex-transfer-icecream"
+COMPLEX_TRANSFER_METHODS = {
+    "complex_transfer_patch": "Patch",
+    "complex_transfer_pixel": "Pixel",
+    "complex_transfer_blur": "Blur",
+}
+
+
+def _attempt_method(attack_type: str, tool_type: str) -> str:
+    return COMPLEX_TRANSFER_METHODS.get(
+        tool_type, "Pixel" if attack_type == "fgsm" else "Patch"
+    )
 
 
 def _prediction_match(prediction: str | None, changed: bool, restored: bool) -> bool | None:
@@ -65,8 +78,11 @@ class InvestigatorReportService:
 
         for attempt in records["attempts"]:
             stage = stage_by_id[attempt.stage_run_id]
-            case = self.case_catalog.get_case(stage.case_id)
-            correct_label = str(case["correct_label"])
+            correct_label = (
+                "ice cream"
+                if stage.case_id == COMPLEX_TRANSFER_CASE_ID
+                else str(self.case_catalog.get_case(stage.case_id)["correct_label"])
+            )
             fallback = attempt.predicted_outcome in FALLBACK_PREDICTIONS
             match = _prediction_match(
                 attempt.predicted_outcome,
@@ -107,7 +123,7 @@ class InvestigatorReportService:
                     "stage": stage.stage,
                     "stage_name": STAGE_NAMES.get(stage.stage, stage.stage),
                     "case_id": stage.case_id,
-                    "method": "Pixel" if stage.attack_type == "fgsm" else "Patch",
+                    "method": _attempt_method(stage.attack_type, attempt.tool_type),
                     "attempt_number": attempt.attempt_number,
                     "fallback": fallback,
                     "tool_type": attempt.tool_type,
@@ -142,8 +158,21 @@ class InvestigatorReportService:
             decisive_matches,
             fallback_methods,
         )
+        complex_stage = next(
+            (stage for stage in stages if stage.case_id == COMPLEX_TRANSFER_CASE_ID),
+            None,
+        )
+        complex_transfer = (
+            self._complex_transfer_report(
+                complex_stage,
+                attempts_by_stage.get(complex_stage.id, []),
+                latest_responses,
+            )
+            if complex_stage is not None
+            else None
+        )
         return {
-            "report_version": 1,
+            "report_version": 2,
             "session": {
                 "completion_status": session.completion_status,
                 "completed_at": session.completed_at.isoformat() if session.completed_at else None,
@@ -184,6 +213,7 @@ class InvestigatorReportService:
                 "evidence_conclusion": transfer_conclusion,
                 "evidence_explanation": self._answer_text(latest_responses.get("transfer_evidence_explanation")),
             },
+            "complex_transfer": complex_transfer,
             "stage3_reflection": {
                 "investigation_order": self._answer_json(latest_responses.get("stage3_investigation_order")),
                 "cross_image_expectation": self._answer_value(latest_responses.get("stage3_cross_image_expectation")),
@@ -194,6 +224,80 @@ class InvestigatorReportService:
             },
             "evidence": evidence,
             "feedback": feedback,
+        }
+
+    @staticmethod
+    def _complex_transfer_report(
+        stage: Any, attempts: list[Any], responses: dict[str, Any]
+    ) -> dict[str, Any]:
+        ordered_attempts = sorted(attempts, key=lambda attempt: attempt.attempt_number)
+        initial_parameters = (
+            dict(ordered_attempts[0].parameters_before or {})
+            if ordered_attempts
+            else None
+        )
+        final_parameters = (
+            dict(ordered_attempts[-1].parameters_after) if ordered_attempts else None
+        )
+        operational_success = bool(stage.classification_restored)
+        fallback_used = bool(stage.fallback_shown)
+
+        def parameters_with_patch_state(value: dict[str, Any] | None) -> dict[str, Any] | None:
+            if value is None:
+                return None
+            result = dict(value)
+            if "patch_enabled" not in result and "patch_size_fraction" in result:
+                result["patch_enabled"] = float(result["patch_size_fraction"]) > 0
+            return result
+
+        return {
+            "case_id": stage.case_id,
+            "completion_status": stage.completion_status,
+            "attempts_used": stage.attempt_count,
+            "operational_success": operational_success,
+            "autonomous_success": operational_success and not fallback_used,
+            "fallback_used": fallback_used,
+            "classification_restored": bool(stage.classification_restored),
+            "initial_classification": stage.initial_top1_label,
+            "initial_parameters": parameters_with_patch_state(initial_parameters),
+            "final_classification": stage.final_top1_label,
+            "final_parameters": parameters_with_patch_state(final_parameters),
+            "attempts": [
+                {
+                    "attempt_number": attempt.attempt_number,
+                    "selected_factor": _attempt_method(
+                        stage.attack_type, attempt.tool_type
+                    ),
+                    "prediction": attempt.predicted_outcome,
+                    "prediction_reason": attempt.prediction_reason,
+                    "parameters_before": parameters_with_patch_state(
+                        attempt.parameters_before
+                    ),
+                    "parameters_after": parameters_with_patch_state(
+                        attempt.parameters_after
+                    ),
+                    "classification_before": attempt.top1_before,
+                    "classification_after": attempt.top1_after,
+                    "classification_restored": attempt.classification_restored,
+                }
+                for attempt in ordered_attempts
+            ],
+            "reflection": {
+                "learning_reflection": InvestigatorReportService._answer_text(
+                    responses.get("complex_transfer_learning_reflection")
+                ),
+                "new_error_strategy": InvestigatorReportService._answer_text(
+                    responses.get("complex_transfer_new_error_strategy")
+                ),
+            },
+            "verified_reference": (
+                None
+                if operational_success
+                else {
+                    "parameters": REFERENCE_PARAMETERS.as_attempt_parameters(),
+                    "classification": EXPECTED_CLASS,
+                }
+            ),
         }
 
     @staticmethod

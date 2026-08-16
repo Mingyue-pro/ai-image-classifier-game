@@ -26,15 +26,30 @@ type Props = {
   subject: string
   classificationRestored: boolean
   revealOriginalStrength: boolean
+  cropSelectionSource?: 'original' | 'attacked'
+  cropSelectionLabel?: string
+  showConfidenceExplanation?: boolean
 }
 
 function loadImage(url: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image()
-    image.crossOrigin = 'anonymous'
-    image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error(`Could not load image: ${url}`))
-    image.src = `${url}${url.includes('?') ? '&' : '?'}pixel_compare=1`
+    let attempt = 0
+    const load = () => {
+      const image = new Image()
+      image.crossOrigin = 'anonymous'
+      image.onload = () => resolve(image)
+      image.onerror = () => {
+        if (attempt < 1) {
+          attempt += 1
+          load()
+          return
+        }
+        reject(new Error(`Could not load image: ${url}`))
+      }
+      const separator = url.includes('?') ? '&' : '?'
+      image.src = `${url}${separator}pixel_compare=${Date.now()}-${attempt}`
+    }
+    load()
   })
 }
 
@@ -117,7 +132,7 @@ export function PixelThreeStateComparison(props: Props) {
         overview.width = width
         overview.height = height
         const overviewContext = context(overview)
-        overviewContext.drawImage(original, 0, 0, width, height)
+        overviewContext.drawImage(props.cropSelectionSource === 'attacked' ? attacked : original, 0, 0, width, height)
         overviewContext.strokeStyle = '#ff8f4d'
         overviewContext.lineWidth = Math.max(2, Math.round(width / 250))
         overviewContext.strokeRect(x, y, CROP_SIZE, CROP_SIZE)
@@ -134,7 +149,7 @@ export function PixelThreeStateComparison(props: Props) {
       setError(null)
     }).catch((caught: unknown) => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not load comparison images.') })
     return () => { cancelled = true }
-  }, [cropOrigin, props.originalUrl, props.attackedUrl, props.repairedUrl])
+  }, [cropOrigin, props.originalUrl, props.attackedUrl, props.repairedUrl, props.cropSelectionSource])
 
   function selectCrop(event: React.MouseEvent<HTMLCanvasElement>) {
     const canvas = event.currentTarget
@@ -152,6 +167,7 @@ export function PixelThreeStateComparison(props: Props) {
   const selectedValues = grid ? [grid.original[selected], grid.attacked[selected], grid.repaired[selected]] : null
   const selectedX = grid ? grid.originX + selected % GRID_SIZE : 0
   const selectedY = grid ? grid.originY + Math.floor(selected / GRID_SIZE) : 0
+  const cropSelectionLabel = props.cropSelectionLabel ?? 'Original'
 
   function pixelGrid(values: Rgb[], label: string) {
     return <figure><figcaption>{label}</figcaption><div className="pixel-inspector__pixel-grid" role="grid" aria-label={`${label} 8 by 8 Pixel Grid`}>{values.map((value, index) => <button key={index} type="button" role="gridcell" aria-selected={selected === index} className={selected === index ? 'is-selected' : ''} aria-label={`${label} pixel ${index}`} style={{ backgroundColor: `rgb(${value.red} ${value.green} ${value.blue})` }} onClick={() => setSelected(index)} />)}</div></figure>
@@ -160,12 +176,12 @@ export function PixelThreeStateComparison(props: Props) {
   return <section className="pixel-three-state" aria-label="Original attacked and repaired Pixel comparison">
     <div className="pixel-three-state__full-images">
       <div><ImagePreviewCard title="Original · Correct reference" imageUrl={props.originalUrl} alt={`Original unmodified ${props.subject} image`} details={props.revealOriginalStrength ? <span>Strength: 0/255</span> : <span>Correctly classified reference image</span>} /><OriginalClassification correctLabel={props.correctLabel} /></div>
-      <div><ImagePreviewCard title="Initial (attacked)" imageUrl={props.attackedUrl} alt={`Initial attacked ${props.subject} image`} details={<span>Strength: {props.attackedStrength}/255</span>} /><ClassificationResultCard title="Initial classification" prediction={props.attackedPrediction} correctLabel={props.correctLabel} /></div>
-      <div><ImagePreviewCard title="Repaired / Modified" imageUrl={props.repairedUrl} alt={`Repaired modified ${props.subject} image`} details={<span>Strength: {props.repairedStrength}/255</span>} /><ClassificationResultCard title="Repaired classification" prediction={props.repairedPrediction} correctLabel={props.correctLabel} /></div>
+      <div><ImagePreviewCard title="Initial (attacked)" imageUrl={props.attackedUrl} alt={`Initial attacked ${props.subject} image`} details={<span>Strength: {props.attackedStrength}/255</span>} /><ClassificationResultCard title="Initial classification" prediction={props.attackedPrediction} correctLabel={props.correctLabel} showConfidenceExplanation={props.showConfidenceExplanation} /></div>
+      <div><ImagePreviewCard title="Repaired / Modified" imageUrl={props.repairedUrl} alt={`Repaired modified ${props.subject} image`} details={<span>Strength: {props.repairedStrength}/255</span>} /><ClassificationResultCard title="Repaired classification" prediction={props.repairedPrediction} correctLabel={props.correctLabel} showConfidenceExplanation={props.showConfidenceExplanation} /></div>
     </div>
     <p className="pixel-three-state__sequence-note">Original → Initial (attacked) → Adjusted shows how the attack and this repair adjustment were associated with the model’s classifications. {props.classificationRestored ? "In this case, the model's original classification returned." : 'In this case, the original classification did not return, so lower strength is not a guaranteed fix.'}</p>
     {error ? <p role="alert" className="pixel-inspector__error">{error}</p> : null}
-    <section className="pixel-three-state__layer"><h3>Pixel Inspector · Select a 32×32 Crop</h3><p>Click the Original image below to select a 32×32 area. The same coordinates are then used for Original, Initial (attacked) and Adjusted.</p><figure className="pixel-three-state__crop-selector"><canvas ref={overviewRef} onClick={selectCrop} aria-label="Select a 32 by 32 comparison crop from the Original image" /><figcaption>{cropOrigin ? `Selected 32×32 crop: x=${cropOrigin.x}–${cropOrigin.x + CROP_SIZE - 1}, y=${cropOrigin.y}–${cropOrigin.y + CROP_SIZE - 1}` : 'Loading crop selector…'}</figcaption></figure><p>The blue outlined 8×8 area in each crop is enlarged into the Pixel Grids below. All three outlines refer to exactly the same coordinates.</p><div className="pixel-three-state__triplet"><figure><figcaption>Original</figcaption><canvas ref={originalCropRef} aria-label="Original 32 by 32 crop" /></figure><figure><figcaption>Initial (attacked)</figcaption><canvas ref={attackedCropRef} aria-label="Initial attacked 32 by 32 crop" /></figure><figure><figcaption>Adjusted</figcaption><canvas ref={repairedCropRef} aria-label="Adjusted 32 by 32 crop" /></figure></div></section>
+    <section className="pixel-three-state__layer"><h3>Pixel Inspector · Select a 32×32 Crop</h3><p>Click the {cropSelectionLabel} image below to select a 32×32 area. The same coordinates are then used for Original, Initial (attacked) and Adjusted.</p><figure className="pixel-three-state__crop-selector"><canvas ref={overviewRef} onClick={selectCrop} aria-label={`Select a 32 by 32 comparison crop from the ${cropSelectionLabel} image`} /><figcaption>{cropOrigin ? `Selected 32×32 crop: x=${cropOrigin.x}–${cropOrigin.x + CROP_SIZE - 1}, y=${cropOrigin.y}–${cropOrigin.y + CROP_SIZE - 1}` : 'Loading crop selector…'}</figcaption></figure><p>The blue outlined 8×8 area in each crop is enlarged into the Pixel Grids below. All three outlines refer to exactly the same coordinates.</p><div className="pixel-three-state__triplet"><figure><figcaption>Original</figcaption><canvas ref={originalCropRef} aria-label="Original 32 by 32 crop" /></figure><figure><figcaption>Initial (attacked)</figcaption><canvas ref={attackedCropRef} aria-label="Initial attacked 32 by 32 crop" /></figure><figure><figcaption>Adjusted</figcaption><canvas ref={repairedCropRef} aria-label="Adjusted 32 by 32 crop" /></figure></div></section>
     <section className="pixel-three-state__layer"><h3>Enhanced Difference</h3><p>These helper views colour-amplify RGB changes that are too small to see clearly in the crops. For each colour channel they display <strong>|second image − first image| × {DIFFERENCE_SCALE}</strong>: a change of 3 appears brighter than a change of 1, while +3 and −3 have the same brightness. Black means no RGB change; darker colour means a smaller change; brighter colour means a larger change. The views show change magnitude, not proof that any pixel alone caused the classification.</p><details><summary>Repair evidence · Initial (attacked) ↔ Adjusted</summary><div className="pixel-three-state__difference-primary"><figure><figcaption>Initial (attacked) ↔ Adjusted</figcaption><canvas ref={repairDifferenceRef} aria-label="Initial attacked to Adjusted Difference" /></figure><div className="pixel-three-state__difference-copy"><strong>What does this analysis compare?</strong><p>It compares the initial attacked image with the user’s adjusted image. It shows where and by how much RGB values changed during this repair attempt.</p></div></div></details><details><summary>Supporting evidence · Compare with the Original</summary><div className="pixel-three-state__difference-supporting"><div className="pixel-three-state__difference-item"><figure><figcaption>Original ↔ Initial (attacked) · Changes introduced by the attack</figcaption><canvas ref={attackDifferenceRef} aria-label="Attack Difference" /></figure><div className="pixel-three-state__difference-copy"><strong>What does this analysis compare?</strong><p>It compares the correct Original image with the Initial (attacked) image. It shows the RGB changes introduced before the repair began.</p></div></div><div className="pixel-three-state__difference-item"><figure><figcaption>Original ↔ Adjusted · Difference remaining after repair</figcaption><canvas ref={remainingDifferenceRef} aria-label="Remaining Difference after Repair" /></figure><div className="pixel-three-state__difference-copy"><strong>What does this analysis compare?</strong><p>It compares the correct Original image with the adjusted image. It shows the RGB differences that remain after this repair attempt.</p></div></div></div><p>These supporting comparisons provide context for the attack and the remaining difference. They do not prove that any individual pixel caused the classification result.</p></details></section>
     {grid && selectedValues ? <section className="pixel-three-state__layer"><div className="pixel-inspector__micro-heading"><div><h3>8×8 real Pixel Grid</h3><span>Each grid enlarges the blue-outlined central 8×8 coordinates from its selected 32×32 crop.</span></div><span>Selected pixel coordinate: ({selectedX}, {selectedY})</span></div><div className="pixel-three-state__triplet pixel-three-state__grids">{pixelGrid(grid.original, 'Original')}{pixelGrid(grid.attacked, 'Initial (attacked)')}{pixelGrid(grid.repaired, 'Adjusted')}</div><div className="pixel-three-state__rgb-sequence">{['Original RGB', 'Initial (attacked) RGB', 'Adjusted RGB'].map((label, index) => <div key={label}><small>{label}</small><strong>R{selectedValues[index].red} G{selectedValues[index].green} B{selectedValues[index].blue}</strong></div>)}</div><figure className="pixel-three-state__chart"><figcaption>Selected pixel RGB values: Original → Initial (attacked) → Adjusted</figcaption><svg viewBox="0 0 620 230" role="img" aria-label="Three-state RGB chart">{([['R', 'red', '#d95b4f'], ['G', 'green', '#438b62'], ['B', 'blue', '#4777b8']] as const).map(([label, key, colour], row) => { const points = selectedValues.map((value, index) => `${130 + index * 170},${180 - value[key] / 255 * 140}`).join(' '); return <g key={label}><polyline points={points} fill="none" stroke={colour} strokeWidth="4" />{selectedValues.map((value, index) => <circle key={index} cx={130 + index * 170} cy={180 - value[key] / 255 * 140} r="6" fill={colour} />)}<text x="520" y={35 + row * 22} fill={colour}>{label}: {selectedValues.map((value) => value[key]).join(' → ')}</text></g> })}<text x="98" y="215">Original</text><text x="260" y="215">Initial</text><text x="438" y="215">Adjusted</text></svg></figure><p className="pixel-three-state__conclusion">The attack introduced small RGB changes across many pixels. After repair, the image became closer to the original input{props.classificationRestored ? ' and the correct classification was restored.' : ', but the correct classification was not restored in this attempt.'}</p></section> : null}
   </section>

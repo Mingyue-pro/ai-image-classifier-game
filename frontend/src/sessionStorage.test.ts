@@ -27,4 +27,18 @@ describe('game progress restoration', () => {
       activeStage: null,
     })
   })
+
+  test('restores a completed Complex Transfer so the backend can rebuild its Summary', () => {
+    const progress = {
+      participant: { id: 'participant-1' },
+      researchSession: { id: 'session-1' },
+      activeStage: {
+        playerCase: { case_id: 'complex-transfer-icecream' },
+        stageRun: { completion_status: 'completed', attempt_count: 3 },
+      },
+    }
+    sessionStorage.setItem(GAME_PROGRESS_STORAGE_KEY, JSON.stringify(progress))
+
+    expect(loadGameProgress().activeStage).toEqual(progress.activeStage)
+  })
 })

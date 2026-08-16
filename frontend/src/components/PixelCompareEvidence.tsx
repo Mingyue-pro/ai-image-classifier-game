@@ -12,9 +12,13 @@ type PixelCompareEvidenceProps = {
   subject: string
   classificationRestored: boolean
   revealOriginalStrength?: boolean
+  originalImageUrl?: string
+  cropSelectionSource?: 'original' | 'attacked'
+  cropSelectionLabel?: string
+  showConfidenceExplanation?: boolean
 }
 
-export function PixelCompareEvidence({ beforeImageUrl, beforeStrength, beforePrediction, afterImageUrl, afterStrength, afterPrediction, correctLabel, subject, classificationRestored, revealOriginalStrength = classificationRestored }: PixelCompareEvidenceProps) {
-  const originalImageUrl = beforeImageUrl.replace(/\/states\/[^/]+\/image(?:\?.*)?$/, '/original-image')
-  return <section className="pixel-compare-evidence pixel-compare-evidence--three-state" aria-label="Pixel strength and classification comparison"><PixelThreeStateComparison originalUrl={originalImageUrl} attackedUrl={beforeImageUrl} repairedUrl={afterImageUrl} attackedStrength={beforeStrength} repairedStrength={afterStrength} attackedPrediction={beforePrediction} repairedPrediction={afterPrediction} correctLabel={correctLabel} subject={subject} classificationRestored={classificationRestored} revealOriginalStrength={revealOriginalStrength} /></section>
+export function PixelCompareEvidence({ beforeImageUrl, beforeStrength, beforePrediction, afterImageUrl, afterStrength, afterPrediction, correctLabel, subject, classificationRestored, revealOriginalStrength = classificationRestored, originalImageUrl, cropSelectionSource, cropSelectionLabel, showConfidenceExplanation = true }: PixelCompareEvidenceProps) {
+  const resolvedOriginalImageUrl = originalImageUrl ?? beforeImageUrl.replace(/\/states\/[^/]+\/image(?:\?.*)?$/, '/original-image')
+  return <section className="pixel-compare-evidence pixel-compare-evidence--three-state" aria-label="Pixel strength and classification comparison"><PixelThreeStateComparison originalUrl={resolvedOriginalImageUrl} attackedUrl={beforeImageUrl} repairedUrl={afterImageUrl} attackedStrength={beforeStrength} repairedStrength={afterStrength} attackedPrediction={beforePrediction} repairedPrediction={afterPrediction} correctLabel={correctLabel} subject={subject} classificationRestored={classificationRestored} revealOriginalStrength={revealOriginalStrength} cropSelectionSource={cropSelectionSource} cropSelectionLabel={cropSelectionLabel} showConfidenceExplanation={showConfidenceExplanation} /></section>
 }

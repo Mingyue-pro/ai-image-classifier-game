@@ -23,13 +23,16 @@ export function loadGameProgress(): StoredGameProgress {
   try {
     const parsed = JSON.parse(stored) as Partial<StoredGameProgress>
     const activeStage = parsed.activeStage
-    const canSafelyRestoreStage = activeStage?.stageRun.completion_status === 'in_progress'
+    const isBackendRestorableComplexTransfer = activeStage?.playerCase.case_id === 'complex-transfer-icecream'
+    const canSafelyRestoreStage = isBackendRestorableComplexTransfer || (
+      activeStage?.stageRun.completion_status === 'in_progress'
       && activeStage.stageRun.attempt_count === 0
+    )
     return {
       participant: parsed.participant ?? null,
       researchSession: parsed.researchSession ?? null,
-      // A pristine Stage can be restored. Once attempts exist, the component's
-      // multi-step state cannot be reconstructed safely from this one record.
+      // Ordinary multi-step flows can only restore a pristine Stage. Complex
+      // Transfer restores every current/terminal state from its backend Run.
       activeStage: canSafelyRestoreStage ? activeStage ?? null : null,
     }
   } catch {

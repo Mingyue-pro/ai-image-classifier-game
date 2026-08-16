@@ -21,6 +21,7 @@ type PixelGridData = { origin: CropOrigin; original: Rgb[]; attacked: Rgb[]; mod
 
 type PixelInspectorProps = {
   originalUrl: string
+  referenceOriginalUrl?: string
   modifiedUrl: string
   subject: string
   strength: number
@@ -29,7 +30,10 @@ type PixelInspectorProps = {
   magnification?: number
   showOriginalStrength?: boolean
   attackedStrength?: number
-  mode?: 'teaching' | 'repair'
+  mode?: 'teaching' | 'repair' | 'comparison'
+  showStrengthDetails?: boolean
+  overviewState?: 'original' | 'attacked' | 'modified'
+  currentStateLabel?: string
 }
 
 function loadImage(url: string, reloadToken: number): Promise<HTMLImageElement> {
@@ -137,6 +141,7 @@ function signedChange(value: number): string {
 
 export function PixelInspector({
   originalUrl,
+  referenceOriginalUrl,
   modifiedUrl,
   subject,
   strength,
@@ -146,6 +151,9 @@ export function PixelInspector({
   showOriginalStrength = false,
   attackedStrength = 4,
   mode = 'repair',
+  showStrengthDetails = true,
+  overviewState = 'original',
+  currentStateLabel = 'Initial (attacked)',
 }: PixelInspectorProps) {
   const overviewRef = useRef<HTMLCanvasElement>(null)
   const originalCropRef = useRef<HTMLCanvasElement>(null)
@@ -161,7 +169,7 @@ export function PixelInspector({
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([loadImage(originalImageUrl(originalUrl), reloadToken), loadImage(originalUrl, reloadToken), loadImage(modifiedUrl, reloadToken)])
+    Promise.all([loadImage(referenceOriginalUrl ?? originalImageUrl(originalUrl), reloadToken), loadImage(originalUrl, reloadToken), loadImage(modifiedUrl, reloadToken)])
       .then(([original, attacked, modified]) => {
         if (cancelled) return
         if (original.naturalWidth !== modified.naturalWidth || original.naturalHeight !== modified.naturalHeight) {
@@ -184,7 +192,7 @@ export function PixelInspector({
         if (!cancelled) setError(caught instanceof Error ? caught.message : 'Pixel Inspector could not load the images.')
       })
     return () => { cancelled = true }
-  }, [cropSize, modifiedUrl, originalUrl, reloadToken])
+  }, [cropSize, modifiedUrl, originalUrl, referenceOriginalUrl, reloadToken])
 
   useEffect(() => {
     if (!images || error) return
@@ -202,7 +210,8 @@ export function PixelInspector({
       overview.height = images.original.naturalHeight
       const overviewContext = canvasContext(overview)
       overviewContext.clearRect(0, 0, overview.width, overview.height)
-      overviewContext.drawImage(images.original, 0, 0)
+      const overviewImage = overviewState === 'attacked' ? images.attacked : overviewState === 'modified' ? images.modified : images.original
+      overviewContext.drawImage(overviewImage, 0, 0)
       overviewContext.strokeStyle = '#ff8f4d'
       overviewContext.lineWidth = Math.max(2, Math.round(overview.width / 250))
       overviewContext.strokeRect(origin.x, origin.y, cropSize, cropSize)
@@ -246,7 +255,7 @@ export function PixelInspector({
       const message = caught instanceof Error ? caught.message : 'Pixel Inspector could not draw the selected region.'
       queueMicrotask(() => setError(message))
     }
-  }, [cropSize, error, images, magnification, origin])
+  }, [cropSize, error, images, magnification, origin, overviewState])
 
   function selectRegion(event: React.MouseEvent<HTMLCanvasElement>) {
     if (!images) return
@@ -278,6 +287,10 @@ export function PixelInspector({
   ] as const : []
   const adjustedSelected = modifiedUrl !== originalUrl
   const isTeachingMode = mode === 'teaching'
+  const isComparisonMode = mode === 'comparison'
+  const isTwoStateMode = isTeachingMode || isComparisonMode
+  const beforeLabel = isComparisonMode ? 'Before' : 'Original'
+  const afterLabel = isComparisonMode ? 'After' : 'Modified'
 
   function renderPixelGrid(pixels: Rgb[], label: string) {
     return <div className="pixel-inspector__pixel-grid" role="grid" aria-label={label}>
@@ -304,37 +317,37 @@ export function PixelInspector({
       <div className="pixel-inspector__heading">
         <div><ScanSearch size={20} /><strong>Pixel Inspector</strong></div>
         <dl>
-          <div><dt>Strength</dt><dd>{strength}/255</dd></div>
+          {showStrengthDetails ? <div><dt>Strength</dt><dd>{strength}/255</dd></div> : null}
           <div><dt>Selected crop</dt><dd>{cropSize}×{cropSize} px · x={origin.x}–{origin.x + cropSize - 1}, y={origin.y}–{origin.y + cropSize - 1}</dd></div>
         </dl>
       </div>
-      <p className="pixel-inspector__strength-explanation"><strong>Strength: {strength}/255.</strong> Pixel Strength controls how far pixel values can be shifted from the original image. It does not mean that {strength} pixels were changed.</p>
+      {showStrengthDetails ? <p className="pixel-inspector__strength-explanation"><strong>Strength: {strength}/255.</strong> Pixel Strength controls how far pixel values can be shifted from the original image. It does not mean that {strength} pixels were changed.</p> : <p className="pixel-inspector__strength-explanation">This fixed Pixel modification makes small RGB adjustments across many pixels.</p>}
       {error ? <div className="pixel-inspector__error" role="alert"><span>{error}</span><button type="button" onClick={retryImages}>Retry images</button></div> : (
         <>
           <figure className="pixel-inspector__overview">
-            <canvas ref={overviewRef} onClick={selectRegion} aria-label={`Select Pixel inspection region for ${subject}`} />
-            <figcaption><Crosshair size={16} />Click the full image to inspect another {cropSize}×{cropSize} region. Edge selections are kept inside the image.</figcaption>
+            <canvas ref={overviewRef} onClick={selectRegion} aria-label={overviewState === 'original' ? `Select Pixel inspection region for ${subject}` : `Select Pixel inspection region from ${overviewState === 'attacked' ? currentStateLabel : overviewState} for ${subject}`} />
+            <figcaption><Crosshair size={16} />This full image shows the {overviewState === 'attacked' ? currentStateLabel : overviewState} used to select a {cropSize}×{cropSize} region. Click it to inspect another location.</figcaption>
           </figure>
-          {!images ? <p className="pixel-inspector__loading" role="status">Loading Original and Modified images…</p> : null}
+          {!images ? <p className="pixel-inspector__loading" role="status">Loading {beforeLabel} and {afterLabel} images…</p> : null}
         </>
       )}
           </div>
           {!error ? <>
           <div className="pixel-inspector__crop-section">
-          <div className="pixel-inspector__crop-header"><strong>{cropSize}×{cropSize} selected crops</strong>{isTeachingMode ? <div className="pixel-inspector__strength-comparison" aria-label={`Original strength ${observedStrength}/255, modified strength ${strength}/255`}><span><small>Original</small><strong>{observedStrength}/255</strong></span><b>→</b><span><small>Modified</small><strong>{strength}/255</strong></span></div> : <div className="pixel-inspector__strength-comparison pixel-inspector__strength-comparison--three" aria-label={showOriginalStrength ? `Original strength ${observedStrength}/255, initial attacked strength ${attackedStrength}/255, adjusted strength ${adjustedSelected ? `${strength}/255` : 'pending'}` : `Correct original reference, initial attacked strength ${attackedStrength}/255, adjusted strength ${adjustedSelected ? `${strength}/255` : 'pending'}`}><span><small>Original</small><strong>{showOriginalStrength ? `${observedStrength}/255` : 'Correct reference'}</strong></span><b>→</b><span><small>Initial (attacked)</small><strong>{attackedStrength}/255</strong></span><b>→</b><span><small>Adjusted</small><strong>{adjustedSelected ? `${strength}/255` : 'Pending'}</strong></span></div>}</div>
-          <div className={`pixel-inspector__crop-pair ${isTeachingMode ? '' : 'pixel-inspector__crop-triplet'}`}>
+          <div className="pixel-inspector__crop-header"><strong>{cropSize}×{cropSize} selected crops</strong>{isTwoStateMode ? <div className="pixel-inspector__strength-comparison" aria-label={showStrengthDetails ? `${beforeLabel} strength ${observedStrength}/255, ${afterLabel.toLowerCase()} strength ${strength}/255` : `${beforeLabel} and ${afterLabel.toLowerCase()} fixed Pixel states`}><span><small>{beforeLabel}</small><strong>{showStrengthDetails ? `${observedStrength}/255` : 'Before'}</strong></span><b>→</b><span><small>{afterLabel}</small><strong>{showStrengthDetails ? `${strength}/255` : 'After'}</strong></span></div> : <div className="pixel-inspector__strength-comparison pixel-inspector__strength-comparison--three" aria-label={showOriginalStrength ? `Original strength ${observedStrength}/255, ${currentStateLabel === 'Initial (attacked)' ? 'initial attacked' : currentStateLabel} strength ${attackedStrength}/255, adjusted strength ${adjustedSelected ? `${strength}/255` : 'pending'}` : `Correct original reference, ${currentStateLabel === 'Initial (attacked)' ? 'initial attacked' : currentStateLabel} strength ${attackedStrength}/255, adjusted strength ${adjustedSelected ? `${strength}/255` : 'pending'}`}><span><small>Original</small><strong>{showOriginalStrength ? `${observedStrength}/255` : 'Correct reference'}</strong></span><b>→</b><span><small>{currentStateLabel}</small><strong>{attackedStrength}/255</strong></span><b>→</b><span><small>Adjusted</small><strong>{adjustedSelected ? `${strength}/255` : 'Pending'}</strong></span></div>}</div>
+          <div className={`pixel-inspector__crop-pair ${isTwoStateMode ? '' : 'pixel-inspector__crop-triplet'}`}>
           <section className="pixel-inspector__module" aria-labelledby="original-crop-heading">
-            <div><strong id="original-crop-heading">1. Original selected crop</strong><p>The enlarged selected crop before repair. Each visible square comes from the same location in the original image.</p></div>
-            <figure className="pixel-inspector__single-crop"><canvas ref={originalCropRef} aria-label={`Original ${cropSize} by ${cropSize} Pixel crop`} /></figure>
+            <div><strong id="original-crop-heading">1. {beforeLabel} selected crop</strong><p>The enlarged selected crop before this adjustment. Each visible square comes from the same image location.</p></div>
+            <figure className="pixel-inspector__single-crop"><canvas ref={originalCropRef} aria-label={`${beforeLabel} ${cropSize} by ${cropSize} Pixel crop`} /></figure>
           </section>
-          {!isTeachingMode ? <section className="pixel-inspector__module" aria-labelledby="attacked-crop-heading">
-            <div><strong id="attacked-crop-heading">2. Initial (attacked) selected crop</strong><p>The same coordinates in the initial attacked image. Orange outlines mark visible RGB changes from Original.</p></div>
-            <figure className="pixel-inspector__single-crop"><canvas ref={attackedCropRef} aria-label={`Initial attacked ${cropSize} by ${cropSize} Pixel crop`} /></figure>
+          {!isTwoStateMode ? <section className="pixel-inspector__module" aria-labelledby="attacked-crop-heading">
+            <div><strong id="attacked-crop-heading">2. {currentStateLabel} selected crop</strong><p>The same coordinates in the current image state. Orange outlines mark visible RGB changes from Original.</p></div>
+            <figure className="pixel-inspector__single-crop"><canvas ref={attackedCropRef} aria-label={`${currentStateLabel === 'Initial (attacked)' ? 'Initial attacked' : currentStateLabel} ${cropSize} by ${cropSize} Pixel crop`} /></figure>
           </section> : <canvas ref={attackedCropRef} hidden aria-hidden="true" />}
           <section className={`pixel-inspector__module ${isTeachingMode || adjustedSelected ? '' : 'pixel-inspector__pending'}`} aria-labelledby="modified-crop-heading">
-            <div><strong id="modified-crop-heading">{isTeachingMode ? '2. Modified selected crop' : '3. Adjusted selected crop'}</strong><p>{isTeachingMode ? 'The same coordinates after applying the selected Pixel Strength.' : adjustedSelected ? 'The same coordinates after the newly selected Strength adjustment.' : 'Select a new Pixel Strength to generate and display the adjusted crop.'}</p></div>
-            <figure className="pixel-inspector__single-crop">{isTeachingMode || adjustedSelected ? <canvas ref={modifiedCropRef} aria-label={`${isTeachingMode ? 'Modified' : 'Adjusted'} ${cropSize} by ${cropSize} Pixel crop`} /> : <div className="pixel-inspector__pending-box">Waiting for a new parameter</div>}</figure>
-            {!isTeachingMode && !adjustedSelected ? <canvas ref={modifiedCropRef} hidden aria-hidden="true" /> : null}
+            <div><strong id="modified-crop-heading">{isTwoStateMode ? `2. ${afterLabel} selected crop` : '3. Adjusted selected crop'}</strong><p>{isTwoStateMode ? 'The same coordinates after applying this Pixel Strength adjustment.' : adjustedSelected ? 'The same coordinates after the newly selected Strength adjustment.' : 'Select a new Pixel Strength to generate and display the adjusted crop.'}</p></div>
+            <figure className="pixel-inspector__single-crop">{isTwoStateMode || adjustedSelected ? <canvas ref={modifiedCropRef} aria-label={`${isTwoStateMode ? afterLabel : 'Adjusted'} ${cropSize} by ${cropSize} Pixel crop`} /> : <div className="pixel-inspector__pending-box">Waiting for a new parameter</div>}</figure>
+            {!isTwoStateMode && !adjustedSelected ? <canvas ref={modifiedCropRef} hidden aria-hidden="true" /> : null}
           </section>
           </div>
           <p className="pixel-inspector__grid-link">The outlined 8×8 area below is enlarged into the Pixel Grids. Both grids show the same coordinates before and after modification. The 32×32 crop contains 1,024 pixels, so displaying all of them as interactive cells would make each cell and its RGB values too small to inspect clearly. The fixed central 8×8 area provides a readable sample; it is not treated as more important or more causal than other pixels.</p>
@@ -342,8 +355,8 @@ export function PixelInspector({
             <figure className="pixel-inspector__single-crop"><canvas ref={differenceCropRef} aria-label={`Enhanced difference ${cropSize} by ${cropSize} Pixel crop`} /></figure>
             <div className="pixel-inspector__difference-copy">
               <strong id="difference-heading">3. Enhanced Difference · {cropSize}×{cropSize}</strong>
-              <p>This final helper view colour-amplifies the small RGB value changes that are difficult to see clearly in the Original and Modified crops above.</p>
-              <p className="pixel-inspector__difference-intro">For each pixel, the view calculates the absolute change in each colour channel: <strong>|Modified − Original| × {DIFFERENCE_ENHANCEMENT}</strong>. A change of 3 is therefore displayed more brightly than a change of 1. Red, green and blue areas show which RGB channels changed by different amounts.</p>
+              <p>This final helper view colour-amplifies the small RGB value changes that are difficult to see clearly in the {beforeLabel} and {afterLabel} crops above.</p>
+              <p className="pixel-inspector__difference-intro">For each pixel, the view calculates the absolute change in each colour channel: <strong>|{afterLabel} − {beforeLabel}| × {DIFFERENCE_ENHANCEMENT}</strong>. A change of 3 is therefore displayed more brightly than a change of 1. Red, green and blue areas show which RGB channels changed by different amounts.</p>
               <ul className="pixel-inspector__difference-legend" aria-label="Enhanced difference colour guide">
                 <li><strong>Black:</strong> No RGB value changed at that pixel.</li>
                 <li><strong>Darker colour:</strong> A smaller RGB change.</li>
@@ -355,29 +368,29 @@ export function PixelInspector({
           </div>
           <div className="pixel-inspector__analysis-pair">
           {pixelGrid && originalPixel && attackedPixel && modifiedPixel ? <section className="pixel-inspector__micro-view" aria-label="Single pixel RGB comparison">
-            <div className="pixel-inspector__micro-heading"><div><strong>8×8 real Pixel Grid</strong><span>{isTeachingMode ? 'Select one coordinate to compare its Original and Modified RGB values.' : 'Select one coordinate to compare its Original, Initial (attacked) and latest Adjusted RGB values.'}</span></div><span>x={pixelGrid.origin.x}–{pixelGrid.origin.x + PIXEL_GRID_SIZE - 1}, y={pixelGrid.origin.y}–{pixelGrid.origin.y + PIXEL_GRID_SIZE - 1}</span></div>
-            <div className="pixel-inspector__micro-grids">
-              <figure><figcaption>Original</figcaption>{renderPixelGrid(pixelGrid.original, 'Original Pixel Grid')}</figure>
-              {!isTeachingMode ? <figure><figcaption>Initial (attacked)</figcaption>{renderPixelGrid(pixelGrid.attacked, 'Initial attacked Pixel Grid')}</figure> : null}
-              {isTeachingMode || adjustedSelected ? <figure><figcaption>{isTeachingMode ? 'Modified' : 'Adjusted'}</figcaption>{renderPixelGrid(pixelGrid.modified, `${isTeachingMode ? 'Modified' : 'Adjusted'} Pixel Grid`)}</figure> : <figure className="pixel-inspector__pending"><figcaption>Adjusted</figcaption><div className="pixel-inspector__pending-box">Select a new parameter to display this 8×8 grid.</div></figure>}
+            <div className="pixel-inspector__micro-heading"><div><strong>8×8 real Pixel Grid</strong><span>{isTwoStateMode ? `Select one coordinate to compare its ${beforeLabel} and ${afterLabel} RGB values.` : `Select one coordinate to compare its Original, ${currentStateLabel} and latest Adjusted RGB values.`}</span></div><span>x={pixelGrid.origin.x}–{pixelGrid.origin.x + PIXEL_GRID_SIZE - 1}, y={pixelGrid.origin.y}–{pixelGrid.origin.y + PIXEL_GRID_SIZE - 1}</span></div>
+            <div className={`pixel-inspector__micro-grids ${isTwoStateMode ? '' : 'pixel-inspector__micro-grids--three'}`}>
+              <figure><figcaption>{beforeLabel}</figcaption>{renderPixelGrid(pixelGrid.original, `${beforeLabel} Pixel Grid`)}</figure>
+              {!isTwoStateMode ? <figure><figcaption>{currentStateLabel}</figcaption>{renderPixelGrid(pixelGrid.attacked, `${currentStateLabel} Pixel Grid`)}</figure> : null}
+              {isTwoStateMode || adjustedSelected ? <figure><figcaption>{isTwoStateMode ? afterLabel : 'Adjusted'}</figcaption>{renderPixelGrid(pixelGrid.modified, `${isTwoStateMode ? afterLabel : 'Adjusted'} Pixel Grid`)}</figure> : <figure className="pixel-inspector__pending"><figcaption>Adjusted</figcaption><div className="pixel-inspector__pending-box">Select a new parameter to display this 8×8 grid.</div></figure>}
             </div>
             <dl className="pixel-inspector__rgb-readout">
               <div className="pixel-inspector__coordinate"><dt>Selected pixel coordinate</dt><dd>({pixelGrid.origin.x + selectedX}, {pixelGrid.origin.y + selectedY})</dd></div>
-              <div><dt>Original RGB</dt><dd>R{originalPixel.red} G{originalPixel.green} B{originalPixel.blue}</dd></div>
-              {!isTeachingMode ? <div><dt>Initial (attacked) RGB</dt><dd>R{attackedPixel.red} G{attackedPixel.green} B{attackedPixel.blue}</dd></div> : null}
-              <div><dt>{isTeachingMode ? 'Modified RGB' : 'Adjusted RGB'}</dt><dd>{isTeachingMode || adjustedSelected ? `R${modifiedPixel.red} G${modifiedPixel.green} B${modifiedPixel.blue}` : 'Waiting for a new parameter'}</dd></div>
-              <div><dt>{isTeachingMode ? 'RGB change' : 'Latest adjustment'}</dt><dd>{isTeachingMode || adjustedSelected ? <><span>R {signedChange(modifiedPixel.red - (isTeachingMode ? originalPixel.red : attackedPixel.red))}</span><span>G {signedChange(modifiedPixel.green - (isTeachingMode ? originalPixel.green : attackedPixel.green))}</span><span>B {signedChange(modifiedPixel.blue - (isTeachingMode ? originalPixel.blue : attackedPixel.blue))}</span></> : 'Not available yet'}</dd></div>
+              <div><dt>{beforeLabel} RGB</dt><dd>R{originalPixel.red} G{originalPixel.green} B{originalPixel.blue}</dd></div>
+              {!isTwoStateMode ? <div><dt>{currentStateLabel} RGB</dt><dd>R{attackedPixel.red} G{attackedPixel.green} B{attackedPixel.blue}</dd></div> : null}
+              <div><dt>{isTwoStateMode ? `${afterLabel} RGB` : 'Adjusted RGB'}</dt><dd>{isTwoStateMode || adjustedSelected ? `R${modifiedPixel.red} G${modifiedPixel.green} B${modifiedPixel.blue}` : 'Waiting for a new parameter'}</dd></div>
+              <div><dt>{isTwoStateMode ? 'RGB change' : 'Latest adjustment'}</dt><dd>{isTwoStateMode || adjustedSelected ? <><span>R {signedChange(modifiedPixel.red - (isTwoStateMode ? originalPixel.red : attackedPixel.red))}</span><span>G {signedChange(modifiedPixel.green - (isTwoStateMode ? originalPixel.green : attackedPixel.green))}</span><span>B {signedChange(modifiedPixel.blue - (isTwoStateMode ? originalPixel.blue : attackedPixel.blue))}</span></> : 'Not available yet'}</dd></div>
             </dl>
-            {isTeachingMode || adjustedSelected ? <figure className="pixel-inspector__rgb-chart" aria-label="Selected pixel RGB value change chart">
-              <figcaption>Selected pixel RGB values: {isTeachingMode ? 'Original → Modified' : 'Original → Initial (attacked) → Adjusted'}</figcaption>
+            {isTwoStateMode || adjustedSelected ? <figure className="pixel-inspector__rgb-chart" aria-label="Selected pixel RGB value change chart">
+              <figcaption>Selected pixel RGB values: {isTwoStateMode ? `${beforeLabel} → ${afterLabel}` : 'Original → Initial (attacked) → Adjusted'}</figcaption>
               <svg viewBox="0 0 520 190" role="img" aria-label="Line chart comparing original attacked and adjusted red green and blue values">
                 <line x1="45" y1="15" x2="45" y2="155" /><line x1="45" y1="155" x2="370" y2="155" />
-                <text x="75" y="178">Original</text>{isTeachingMode ? <text x="305" y="178">Modified</text> : <><text x="180" y="178">Initial</text><text x="305" y="178">Adjusted</text></>}
+                <text x="75" y="178">{beforeLabel}</text>{isTwoStateMode ? <text x="305" y="178">{afterLabel}</text> : <><text x="180" y="178">Initial</text><text x="305" y="178">Adjusted</text></>}
                 {chartValues.map(([channel, original, attacked, adjusted, colour], index) => {
-                  const values = isTeachingMode ? [original, adjusted] : [original, attacked, adjusted]
-                  const xPositions = isTeachingMode ? [100, 330] : [100, 215, 330]
+                  const values = isTwoStateMode ? [original, adjusted] : [original, attacked, adjusted]
+                  const xPositions = isTwoStateMode ? [100, 330] : [100, 215, 330]
                   const points = values.map((value, point) => `${xPositions[point]},${155 - (value / 255) * 130}`).join(' ')
-                  return <g key={channel}><polyline points={points} fill="none" stroke={colour} strokeWidth="3" />{values.map((value, point) => <circle key={point} cx={xPositions[point]} cy={155 - (value / 255) * 130} r="5" fill={colour} />)}<text className="rgb-chart-legend" x="390" y={28 + index * 19} fill={colour}>{isTeachingMode ? `${channel} ${original} → ${adjusted}` : `${channel} ${original} → ${attacked} → ${adjusted}`}</text></g>
+                  return <g key={channel}><polyline points={points} fill="none" stroke={colour} strokeWidth="3" />{values.map((value, point) => <circle key={point} cx={xPositions[point]} cy={155 - (value / 255) * 130} r="5" fill={colour} />)}<text className="rgb-chart-legend" x="390" y={28 + index * 19} fill={colour}>{isTwoStateMode ? `${channel} ${original} → ${adjusted}` : `${channel} ${original} → ${attacked} → ${adjusted}`}</text></g>
                 })}
               </svg>
             </figure> : <div className="pixel-inspector__pending-box pixel-inspector__pending-chart">Select a new Pixel Strength to display the three-state RGB chart.</div>}

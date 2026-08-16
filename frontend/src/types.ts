@@ -130,6 +130,64 @@ export type PreviewResult = {
   parameters: Record<string, number>
 }
 
+export type ComplexTransferApiParameters = {
+  patch: { size_fraction: number; position_x: number; position_y: number }
+  pixel_strength: number
+  blur_level: 'high' | 'medium' | 'low' | 'none'
+}
+
+export type ComplexTransferRun = {
+  stage_run_id: string
+  image_url: string
+  original_image_url?: string
+  expected_class: string
+  current_top1: Prediction
+  current_parameters: ComplexTransferApiParameters
+  attempt_index: number
+  remaining_attempts: number
+  max_attempts: number
+  success: boolean
+  finished: boolean
+  exhausted: boolean
+  initial_top1_label: string
+  attempts: ComplexTransferAttempt[]
+  reference_recoverable_parameters: ComplexTransferApiParameters
+  reference_top1_label: string
+}
+
+export type ComplexTransferAttempt = {
+  attempt_number: number
+  selected_factor: 'patch' | 'pixel' | 'blur'
+  prediction: string
+  before_parameters: ComplexTransferApiParameters
+  after_parameters: ComplexTransferApiParameters
+  before_classification: string
+  after_classification: string
+  classification_restored: boolean
+  timestamp: string
+}
+
+export type ComplexTransferAction = {
+  stage_run_id: string
+  attempt_index: number
+  image_url: string
+  selected_factor: string
+  prediction: string
+  before_parameters: ComplexTransferApiParameters
+  after_parameters: ComplexTransferApiParameters
+  before_top1: Prediction
+  after_top1: Prediction
+  classification_restored: boolean
+  remaining_attempts: number
+}
+
+export type ComplexTransferReflection = {
+  stage_run_id: string
+  completed: boolean
+  learning_reflection: string | null
+  new_error_strategy: string | null
+}
+
 export type StageTwoAttempt = {
   method: 'Patch' | 'Pixel'
   parameters: Record<string, number>
@@ -182,7 +240,7 @@ export type ReportEvidence = {
   stage: string
   stage_name: string
   case_id: string
-  method: 'Patch' | 'Pixel'
+  method: 'Patch' | 'Pixel' | 'Blur'
   attempt_number: number
   fallback: boolean
   tool_type: string
@@ -197,6 +255,41 @@ export type ReportEvidence = {
   classification_restored: boolean
   confidence_after: number | null
   correct_rank_after: number | null
+}
+
+export type ComplexTransferReportAttempt = {
+  attempt_number: number
+  selected_factor: 'Patch' | 'Pixel' | 'Blur'
+  prediction: string | null
+  prediction_reason: string | null
+  parameters_before: Record<string, unknown> | null
+  parameters_after: Record<string, unknown> | null
+  classification_before: string | null
+  classification_after: string
+  classification_restored: boolean
+}
+
+export type ComplexTransferReport = {
+  case_id: string
+  completion_status: string
+  attempts_used: number
+  operational_success: boolean
+  autonomous_success: boolean
+  fallback_used: boolean
+  classification_restored: boolean
+  initial_classification: string | null
+  initial_parameters: Record<string, unknown> | null
+  final_classification: string | null
+  final_parameters: Record<string, unknown> | null
+  attempts: ComplexTransferReportAttempt[]
+  reflection: {
+    learning_reflection: string | null
+    new_error_strategy: string | null
+  }
+  verified_reference: {
+    parameters: Record<string, unknown>
+    classification: string
+  } | null
 }
 
 export type InvestigatorReport = {
@@ -217,6 +310,7 @@ export type InvestigatorReport = {
     repairs: Record<'Patch' | 'Pixel', { direction: string | null; reason: string | null }>
     evidence_conclusion: string | null; evidence_explanation: string | null
   }
+  complex_transfer: ComplexTransferReport | null
   stage3_reflection: Record<string, unknown>
   evidence: ReportEvidence[]
   feedback: string[]

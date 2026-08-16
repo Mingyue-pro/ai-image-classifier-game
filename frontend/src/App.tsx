@@ -5,20 +5,28 @@ import { ArrowRight, Compass, FlaskConical, Leaf, Search, ShieldCheck } from 'lu
 import {
   createParticipant,
   createSession,
+  completeResearchSession,
   getPlayerCase,
+  getComplexTransferReflection,
+  initializeComplexTransfer,
+  previewComplexTransfer,
+  reclassifyComplexTransfer,
+  saveComplexTransferReflection,
+  resolveApiUrl,
   startStageRun,
 } from './api'
 import { StageShell } from './components/StageShell'
 import { StageOneFlow } from './components/StageOneFlow'
 import { StageTwoFlow } from './components/StageTwoFlow'
 import { RepairInvestigationFlow } from './components/RepairInvestigationFlow'
-import { TransferChallengeFlow } from './components/TransferChallengeFlow'
+import { ComplexTransferFlow } from './components/ComplexTransferFlow'
+import type { ComplexTransferManipulation, ComplexTransferParameters, ComplexTransferPlan } from './components/ComplexTransferFlow'
 import { InvestigatorReport } from './components/InvestigatorReport'
 import { AppHeader } from './components/GameUi'
 import { GAME_CASES } from './gameConfig'
 import { loadGameProgress, saveGameProgress } from './sessionStorage'
 import { APP_PATHS, pathForStage, pathForStageNumber, stageNumberForPath } from './routes'
-import type { ActiveStage, Participant, ResearchSession, StageOneSummary } from './types'
+import type { ActiveStage, ComplexTransferApiParameters, ComplexTransferReflection, ComplexTransferRun, Participant, ResearchSession, StageOneSummary } from './types'
 import './App.css'
 
 
@@ -62,6 +70,8 @@ function GameApplication() {
   const [transferCases, setTransferCases] = useState<ActiveStage[]>(
     restoredProgress.activeStage?.playerCase.stage === 'transfer' ? [restoredProgress.activeStage] : [],
   )
+  const [complexTransferRun, setComplexTransferRun] = useState<ComplexTransferRun | null>(null)
+  const [complexTransferReflection, setComplexTransferReflection] = useState<ComplexTransferReflection | null>(null)
   const loadingMissingStageOne = useRef(false)
   const loadingMissingStageTwo = useRef(false)
   const loadingMissingStageThree = useRef(false)
@@ -153,7 +163,7 @@ function GameApplication() {
   }, [activeStage, researchSession, stageThreeCases.length])
 
   useEffect(() => {
-    if (researchSession === null || activeStage === null || activeStage.playerCase.stage !== 'transfer' || transferCases.length >= 2 || loadingMissingTransfer.current) return
+    if (researchSession === null || activeStage === null || activeStage.playerCase.stage !== 'transfer' || activeStage.playerCase.case_id === 'complex-transfer-icecream' || transferCases.length >= 2 || loadingMissingTransfer.current) return
     loadingMissingTransfer.current = true
     const currentSession = researchSession
     const missingIndex = activeStage.caseIndex === 6 ? 7 : 6
@@ -168,6 +178,18 @@ function GameApplication() {
     }
     void loadMissingTransferCase()
   }, [activeStage, researchSession, transferCases.length])
+
+  useEffect(() => {
+    if (researchSession === null || activeStage?.playerCase.case_id !== 'complex-transfer-icecream' || complexTransferRun !== null || loadingMissingTransfer.current) return
+    loadingMissingTransfer.current = true
+    initializeComplexTransfer(researchSession.id)
+      .then(async (run) => {
+        setComplexTransferRun(run)
+        setComplexTransferReflection(run.finished ? await getComplexTransferReflection(run.stage_run_id) : null)
+      })
+      .catch((error: unknown) => setStageError(error instanceof Error ? error.message : 'Complex Transfer could not be restored.'))
+      .finally(() => { loadingMissingTransfer.current = false })
+  }, [activeStage, complexTransferRun, researchSession])
 
   async function startAnonymousSession() {
     if (!consentConfirmed || isStarting) {
@@ -286,20 +308,117 @@ function GameApplication() {
     if (researchSession === null || isLoadingStage) return
     setIsLoadingStage(true); setStageError(null)
     try {
-      const loaded: ActiveStage[] = []
-      for (const [index, definition] of GAME_CASES.slice(6, 8).entries()) {
-        const playerCase = await getPlayerCase(definition.caseId)
-        const stageRun = await startStageRun(researchSession.id, definition.caseId)
-        loaded.push({ caseIndex: index + 6, playerCase, stageRun })
+      const run = await initializeComplexTransfer(researchSession.id)
+      const reflection = run.finished ? await getComplexTransferReflection(run.stage_run_id) : null
+      const active: ActiveStage = {
+        caseIndex: 6,
+        playerCase: {
+          case_id: 'complex-transfer-icecream', stage: 'transfer', subject: 'ice cream', attack_type: 'complex', interaction_mode: 'runtime_complex_transfer', correct_label: run.expected_class,
+          initial_state_id: 'T0', initial_image_url: run.image_url, original_image_url: run.original_image_url, initial_top1: run.current_top1,
+          parameter_rules: [], max_attempts: run.max_attempts, available_states: [],
+        },
+        stageRun: {
+          id: run.stage_run_id, session_id: researchSession.id, case_id: 'complex-transfer-icecream', stage: 'transfer', attack_type: 'complex', completion_status: 'in_progress',
+          success: run.success, attempt_count: run.attempt_index, used_hint: false, fallback_shown: false, initial_top1_label: run.current_top1.label,
+          final_top1_label: null, classification_restored: run.success, started_at: new Date().toISOString(), completed_at: null,
+        },
       }
-      setTransferCases(loaded); setActiveStage(loaded[0])
+      setComplexTransferRun(run); setComplexTransferReflection(reflection); setTransferCases([]); setActiveStage(active)
     } catch (error) { setStageError(error instanceof Error ? error.message : 'Transfer could not be started.') }
     finally { setIsLoadingStage(false) }
   }
 
-  function finishTransfer(completedCases: ActiveStage[]) {
-    setTransferCases(completedCases)
-    setActiveStage(completedCases[1])
+  function complexParameters(value: ComplexTransferApiParameters): ComplexTransferParameters {
+    return { patch: { size: value.patch.size_fraction, positionX: value.patch.position_x, positionY: value.patch.position_y }, pixelStrength: value.pixel_strength, blurLevel: value.blur_level }
+  }
+
+  function apiComplexParameters(value: ComplexTransferParameters): ComplexTransferApiParameters {
+    return { patch: { size_fraction: value.patch.size, position_x: value.patch.positionX, position_y: value.patch.positionY }, pixel_strength: value.pixelStrength, blur_level: value.blurLevel }
+  }
+
+  async function previewComplexManipulation(manipulation: ComplexTransferManipulation): Promise<string> {
+    if (!complexTransferRun) throw new Error('Complex Transfer is not initialized.')
+    const preview = await previewComplexTransfer(complexTransferRun.stage_run_id, manipulation.selectedFactor, apiComplexParameters(manipulation.afterParameters))
+    return `${resolveApiUrl(preview.image_url)}?v=${Date.now()}`
+  }
+
+  async function runComplexReclassification(manipulation: ComplexTransferManipulation, plan: ComplexTransferPlan) {
+    if (!complexTransferRun || !researchSession) throw new Error('Complex Transfer is not initialized.')
+    const action = await reclassifyComplexTransfer(complexTransferRun.stage_run_id, {
+      selected_factor: manipulation.selectedFactor,
+      parameters: apiComplexParameters(manipulation.afterParameters),
+      prediction: plan.prediction,
+      ...(plan.reason ? { prediction_reason: plan.reason } : {}),
+    })
+    let authoritativeRun: ComplexTransferRun = {
+      ...complexTransferRun,
+      image_url: action.image_url,
+      current_top1: action.after_top1,
+      current_parameters: action.after_parameters,
+      attempt_index: action.attempt_index,
+      remaining_attempts: action.remaining_attempts,
+      success: action.classification_restored,
+    }
+    const finished = action.classification_restored || action.remaining_attempts === 0
+    if (finished) {
+      const refreshed = await initializeComplexTransfer(researchSession.id)
+      if (refreshed.stage_run_id !== complexTransferRun.stage_run_id) {
+        throw new Error('The completed Complex Transfer StageRun could not be restored.')
+      }
+      authoritativeRun = refreshed
+      setComplexTransferReflection(await getComplexTransferReflection(refreshed.stage_run_id))
+    }
+    setComplexTransferRun(authoritativeRun)
+    setActiveStage((current) => current?.playerCase.case_id === 'complex-transfer-icecream' ? {
+      ...current,
+      stageRun: {
+        ...current.stageRun,
+        attempt_count: action.attempt_index,
+        final_top1_label: action.after_top1.label,
+        completion_status: finished ? 'completed' : current.stageRun.completion_status,
+        success: action.classification_restored,
+        classification_restored: action.classification_restored,
+      },
+    } : current)
+    return {
+      imageUrl: resolveApiUrl(action.image_url),
+      beforePrediction: action.before_top1,
+      prediction: action.after_top1,
+      classificationRestored: action.classification_restored,
+      attemptIndex: action.attempt_index,
+      remainingAttempts: action.remaining_attempts,
+      finished,
+      attemptHistory: authoritativeRun.attempts,
+      initialClassification: authoritativeRun.initial_top1_label,
+      maxAttempts: authoritativeRun.max_attempts,
+    }
+  }
+
+  async function refreshComplexTransferForNextAttempt() {
+    if (!researchSession || !complexTransferRun) throw new Error('Complex Transfer is not initialized.')
+    const refreshed = await initializeComplexTransfer(researchSession.id)
+    if (refreshed.stage_run_id !== complexTransferRun.stage_run_id) {
+      throw new Error('The current Complex Transfer StageRun could not be restored.')
+    }
+    setComplexTransferRun(refreshed)
+  }
+
+  async function submitComplexTransferReflection(answers: { learningReflection: string; newErrorStrategy: string }) {
+    if (!complexTransferRun) throw new Error('Complex Transfer is not initialized.')
+    const saved = await saveComplexTransferReflection(complexTransferRun.stage_run_id, {
+      learning_reflection: answers.learningReflection,
+      new_error_strategy: answers.newErrorStrategy,
+    })
+    setComplexTransferReflection(saved)
+  }
+
+  async function viewInvestigatorReport() {
+    if (!researchSession) return
+    const completed = researchSession.completion_status === 'completed'
+      ? researchSession
+      : await completeResearchSession(researchSession.id)
+    setResearchSession(completed)
+    setShowReport(true)
   }
 
   function beginRequestedStage() {
@@ -362,7 +481,7 @@ function GameApplication() {
             priorSummaries={stageOneSummaries}
             onStageComplete={finishStageOne}
             onContinue={() => void beginStageTwo()}
-          /> : activeStage.playerCase.stage === 'stage2' ? stageTwoCases.length < 2 ? <p className="loading-message">Loading both Condition Investigation experiments…</p> : <StageTwoFlow cases={stageTwoCases} nextError={stageError} onStageComplete={finishStageTwo} onContinue={() => void beginStageThree()} isMovingNext={isLoadingStage} /> : activeStage.playerCase.stage === 'stage3' ? stageThreeCases.length < 2 ? <p className="loading-message">Loading both Repair Investigation cases…</p> : <RepairInvestigationFlow cases={stageThreeCases} nextError={stageError} onStageComplete={finishStageThree} onContinue={() => void beginTransfer()} isMovingNext={isLoadingStage} /> : transferCases.length < 2 ? <p className="loading-message">Loading both Transfer cases…</p> : <TransferChallengeFlow cases={transferCases} nextError={stageError} onStageComplete={finishTransfer} onViewReport={() => setShowReport(true)} />}
+          /> : activeStage.playerCase.stage === 'stage2' ? stageTwoCases.length < 2 ? <p className="loading-message">Loading both Condition Investigation experiments…</p> : <StageTwoFlow cases={stageTwoCases} nextError={stageError} onStageComplete={finishStageTwo} onContinue={() => void beginStageThree()} isMovingNext={isLoadingStage} /> : activeStage.playerCase.stage === 'stage3' ? stageThreeCases.length < 2 ? <p className="loading-message">Loading both Repair Investigation cases…</p> : <RepairInvestigationFlow cases={stageThreeCases} nextError={stageError} onStageComplete={finishStageThree} onContinue={() => void beginTransfer()} isMovingNext={isLoadingStage} /> : complexTransferRun && (!complexTransferRun.finished || complexTransferReflection !== null) ? <ComplexTransferFlow imageUrl={resolveApiUrl(complexTransferRun.image_url)} originalImageUrl={resolveApiUrl(complexTransferRun.original_image_url ?? complexTransferRun.image_url)} subject="ice cream" currentPrediction={complexTransferRun.current_top1} attemptIndex={complexTransferRun.attempt_index} maxAttempts={complexTransferRun.max_attempts} initialClassification={complexTransferRun.initial_top1_label} attemptHistory={complexTransferRun.attempts} runFinished={complexTransferRun.finished} runSuccess={complexTransferRun.success} referenceParameters={complexParameters(complexTransferRun.reference_recoverable_parameters)} referenceTop1Label={complexTransferRun.reference_top1_label} currentParameters={complexParameters(complexTransferRun.current_parameters)} onPlanConfirmed={() => undefined} onPreview={previewComplexManipulation} onReclassify={runComplexReclassification} onDecideNext={refreshComplexTransferForNextAttempt} reflectionCompleted={complexTransferReflection?.completed ?? false} onSubmitReflection={submitComplexTransferReflection} onViewReport={viewInvestigatorReport} /> : <p className="loading-message">Loading Complex Transfer…</p>}
         </StageShell>
       ) : (
         <section className="session-ready" aria-labelledby="session-ready-title">

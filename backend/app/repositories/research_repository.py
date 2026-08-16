@@ -59,6 +59,16 @@ class ResearchRepository:
         """Return one Stage run or raise when it does not exist."""
         return self._require_stage_run(stage_run_id)
 
+    def get_latest_stage_run_for_case(self, session_id: str, case_id: str) -> StageRun | None:
+        """Return the newest matching run so refresh can resume one Complex Transfer."""
+        self._require_session(session_id)
+        return self.database_session.scalar(
+            select(StageRun)
+            .where(StageRun.session_id == session_id, StageRun.case_id == case_id)
+            .order_by(StageRun.started_at.desc(), StageRun.id.desc())
+            .limit(1)
+        )
+
     def get_attempt(self, stage_run_id: str, attempt_number: int) -> Attempt:
         """Return one numbered Stage attempt or raise when it does not exist."""
         attempt = self.database_session.scalar(
@@ -92,6 +102,15 @@ class ResearchRepository:
                 .where(Attempt.stage_run_id == stage_run_id)
                 .order_by(Attempt.attempt_number)
             )
+        )
+
+    def get_latest_event(self, stage_run_id: str, event_type: str) -> InteractionEvent | None:
+        self._require_stage_run(stage_run_id)
+        return self.database_session.scalar(
+            select(InteractionEvent)
+            .where(InteractionEvent.stage_run_id == stage_run_id, InteractionEvent.event_type == event_type)
+            .order_by(InteractionEvent.created_at.desc(), InteractionEvent.id.desc())
+            .limit(1)
         )
 
     def get_session_export_records(self, session_id: str) -> dict[str, Any]:
@@ -301,6 +320,19 @@ class ResearchRepository:
         )
         self.database_session.add(response)
         return self._commit_and_refresh(response)
+
+    def get_stage_response(self, stage_run_id: str, question_key: str) -> Response | None:
+        """Return the first stored answer for a Stage question, if present."""
+        self._require_stage_run(stage_run_id)
+        return self.database_session.scalar(
+            select(Response)
+            .where(
+                Response.stage_run_id == stage_run_id,
+                Response.question_key == question_key,
+            )
+            .order_by(Response.created_at.asc(), Response.id.asc())
+            .limit(1)
+        )
 
     def complete_stage_run(
         self,
