@@ -67,8 +67,8 @@ function predictionStatus(row: ReportEvidence): string {
 
 function predictionLabel(value: string | null): string {
   const labels: Record<string, string> = {
-    classification_changes: 'Top-1 will change',
-    classification_stays_same: 'Top-1 will not change',
+    classification_changes: "The AI's main judgement will change",
+    classification_stays_same: "The AI's main judgement will not change",
     restored: 'The correct classification will be restored',
     still_incorrect: 'The image will still be misclassified',
     uncertain: 'Not sure',

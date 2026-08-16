@@ -25,6 +25,7 @@ class PlayerCaseRead(BaseModel):
     correct_label: str
     initial_state_id: str
     initial_image_url: str
+    original_image_url: str
     initial_top1: Prediction
     parameter_rules: list[dict[str, Any]]
     max_attempts: int | None

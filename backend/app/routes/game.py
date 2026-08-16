@@ -72,6 +72,18 @@ def read_case_image(
     return FileResponse(path)
 
 
+@router.get("/cases/{case_id}/original-image")
+def read_case_original_image(
+    case_id: str,
+    game_service: GameService = Depends(get_game_service),
+) -> FileResponse:
+    try:
+        path = game_service.get_case_original_image_path(case_id)
+    except (CaseCatalogError, GameAssetError, GameInputError) as error:
+        _raise_game_http_error(error)
+    return FileResponse(path)
+
+
 @router.post(
     "/stage-runs/{stage_run_id}/apply-choice",
     response_model=GameActionRead,

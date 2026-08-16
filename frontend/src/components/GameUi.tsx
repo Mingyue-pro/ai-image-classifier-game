@@ -38,7 +38,7 @@ export function StepProgress({ steps, currentIndex }: { steps: readonly string[]
 }
 
 export function PanelTitle({ label, title, description }: { label: string; title: string; description: string }) {
-  return <div className="panel-title"><p>{label}</p><h2>{title}</h2><span>{description}</span></div>
+  return <div className="panel-title"><p>{label}{label === 'Manipulate' ? ' · This round’s repair direction' : ''}</p><h2>{title}</h2><span>{description}</span></div>
 }
 
 export function StatusBadge({ tone, children }: { tone: 'neutral' | 'success' | 'warning'; children: ReactNode }) {
@@ -54,7 +54,7 @@ export function ClassificationResultCard({ title, prediction, correctLabel, reve
   return (
     <section className="classification-card" aria-label={title}>
       <div className="card-heading"><strong>{title}</strong>{reveal && prediction ? <StatusBadge tone={correct ? 'success' : 'warning'}>{correct ? 'Correct' : 'Changed'}</StatusBadge> : null}</div>
-      {reveal && prediction ? <><p className="result-label">{prediction.label}</p><p className="confidence">Confidence {(prediction.probability * 100).toFixed(1)}%</p><dl><div><dt>True class</dt><dd>{correctLabel}</dd></div><div><dt>Top-1 status</dt><dd>{correct ? 'Matches true class' : 'Does not match true class'}</dd></div></dl></> : <div className="hidden-result"><ShieldCheck size={24} /><strong>Result hidden</strong><span>Reclassify to reveal the verified result.</span></div>}
+      {reveal && prediction ? <><p className="result-label">{prediction.label}</p><p className="confidence">Confidence {(prediction.probability * 100).toFixed(1)}%</p><dl><div><dt>True class</dt><dd>{correctLabel}</dd></div><div><dt>AI's current main classification judgement</dt><dd>{correct ? 'Matches true class' : 'Does not match true class'}</dd></div></dl></> : <div className="hidden-result"><ShieldCheck size={24} /><strong>Result hidden</strong><span>Reclassify to reveal the verified result.</span></div>}
     </section>
   )
 }

@@ -76,6 +76,7 @@ export type PlayerCase = {
   correct_label: string
   initial_state_id: string
   initial_image_url: string
+  original_image_url?: string
   initial_top1: Prediction
   parameter_rules: ParameterRule[]
   max_attempts: number | null

@@ -185,6 +185,8 @@ class InvestigatorReportService:
                 "evidence_explanation": self._answer_text(latest_responses.get("transfer_evidence_explanation")),
             },
             "stage3_reflection": {
+                "investigation_order": self._answer_json(latest_responses.get("stage3_investigation_order")),
+                "cross_image_expectation": self._answer_value(latest_responses.get("stage3_cross_image_expectation")),
                 "initial_repair_evaluation": self._answer_json(latest_responses.get("stage3_initial_repair_evaluation")),
                 "reconsideration": self._answer_text(latest_responses.get("stage3_reconsideration")),
                 "remaining_uncertainty": self._answer_json(latest_responses.get("stage3_remaining_uncertainty")),

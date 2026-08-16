@@ -92,6 +92,7 @@ class GameService:
             correct_label=self._required_text(case, "correct_label"),
             initial_state_id=self._required_text(case, "initial_state_id"),
             initial_image_url=self.case_image_url(case_id, initial_state["state_id"]),
+            original_image_url=f"/game/cases/{case_id}/original-image",
             initial_top1=initial_top1,
             parameter_rules=self._parameter_rules(case),
             max_attempts=case.get("max_attempts"),
@@ -103,6 +104,15 @@ class GameService:
         case = self.case_catalog.get_case(case_id)
         state = self._get_state(case, state_id)
         return self._trusted_project_file(self._required_text(state, "image_path"))
+
+    def get_case_original_image_path(self, case_id: str) -> Path:
+        """Return the trusted unmodified source image configured for a case."""
+        case = self.case_catalog.get_case(case_id)
+        initial_state = self._get_state(case, self._required_text(case, "initial_state_id"))
+        source_path = initial_state.get("source_image_path") or initial_state.get("image_path")
+        return self._trusted_project_file(
+            self._required_text({"source_path": source_path}, "source_path")
+        )
 
     def get_attempt_image_path(self, stage_run_id: str, attempt_number: int) -> Path:
         """Return a trusted runtime image path for an existing recorded Attempt."""
@@ -246,6 +256,20 @@ class GameService:
         self._validate_tool(tool_type, attack_type)
         parameters = self._resolve_parameters(case, submitted_parameters)
         parameters_before = self._current_parameters(case, stage_run_id)
+        if enforce_attempt_limit and stage_run.stage in {"stage3", "transfer"}:
+            parameter_names = {
+                self._required_text(rule, "parameter")
+                for rule in self._parameter_rules(case)
+            }
+            unchanged = all(
+                name in parameters_before
+                and abs(float(parameters_before[name]) - parameters[name]) < 1e-9
+                for name in parameter_names
+            )
+            if unchanged:
+                raise GameConflictError(
+                    "Change at least one repair parameter before reclassifying"
+                )
         attempt_number = stage_run.attempt_count + 1
         output_path = self.runtime_root / stage_run_id / f"attempt-{attempt_number}.png"
 

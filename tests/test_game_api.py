@@ -227,6 +227,8 @@ def test_game_api_hides_fixed_outcome_then_records_selected_result(
             with TestClient(app) as client:
                 case_response = client.get("/game/cases/stage1-test-patch")
                 assert case_response.status_code == 200
+                assert case_response.json()["original_image_url"] == "/game/cases/stage1-test-patch/original-image"
+                assert client.get(case_response.json()["original_image_url"]).status_code == 200
                 option = case_response.json()["available_states"][0]
                 assert set(option) == {"state_id", "role", "image_url", "parameters"}
                 assert "top1" not in option
@@ -287,6 +289,27 @@ def test_runtime_patch_and_fgsm_use_server_results_and_save_attempts(
         app.dependency_overrides[get_game_service] = lambda: service
         try:
             with TestClient(app) as client:
+                unchanged_patch = client.post(
+                    f"/game/stage-runs/{patch_stage_id}/reclassify",
+                    json={
+                        "tool_type": "resize_patch",
+                        "parameters": {"size_fraction": 0.3},
+                    },
+                )
+                assert unchanged_patch.status_code == 409
+                assert unchanged_patch.json()["detail"] == (
+                    "Change at least one repair parameter before reclassifying"
+                )
+
+                unchanged_pixel = client.post(
+                    f"/game/stage-runs/{fgsm_stage_id}/reclassify",
+                    json={
+                        "tool_type": "change_epsilon",
+                        "parameters": {"epsilon_pixels": 4},
+                    },
+                )
+                assert unchanged_pixel.status_code == 409
+
                 preview_response = client.post(
                     f"/game/stage-runs/{patch_stage_id}/preview",
                     json={
@@ -319,6 +342,15 @@ def test_runtime_patch_and_fgsm_use_server_results_and_save_attempts(
                     "position_y": 0.5,
                 }
                 assert client.get(patch_response.json()["image_url"]).status_code == 200
+
+                repeated_patch = client.post(
+                    f"/game/stage-runs/{patch_stage_id}/reclassify",
+                    json={
+                        "tool_type": "resize_patch",
+                        "parameters": {"size_fraction": 0.1},
+                    },
+                )
+                assert repeated_patch.status_code == 409
 
                 fgsm_response = client.post(
                     f"/game/stage-runs/{fgsm_stage_id}/reclassify",
@@ -376,12 +408,14 @@ def test_verified_fallback_is_available_only_after_maximum_attempts(
                 )
                 assert early.status_code == 409
 
-                for attempt_number in range(1, 4):
+                for attempt_number, size_fraction in enumerate(
+                    (0.1, 0.3, 0.1), start=1
+                ):
                     response = client.post(
                         f"/game/stage-runs/{stage_run_id}/reclassify",
                         json={
                             "tool_type": "resize_patch",
-                            "parameters": {"size_fraction": 0.3},
+                            "parameters": {"size_fraction": size_fraction},
                             "predicted_outcome": "still_incorrect",
                             "prediction_reason": "Testing another repair idea.",
                         },

@@ -385,7 +385,7 @@ describe('App anonymous session onboarding', () => {
     )
     await user.click(
       screen.getByRole('radio', {
-        name: 'Top-1 will change',
+        name: "The AI's main judgement will change",
       }),
     )
     await user.click(screen.getByRole('button', { name: 'Lock prediction and continue' }))
@@ -411,12 +411,13 @@ describe('App anonymous session onboarding', () => {
 
     await user.click(screen.getByRole('button', { name: 'Return to Select Change' }))
     await user.click(screen.getByRole('button', { name: /High-strength Pixel change/i }))
-    await user.click(screen.getByRole('radio', { name: 'Top-1 will change' }))
+    await user.click(screen.getByRole('radio', { name: "The AI's main judgement will change" }))
     await user.click(screen.getByRole('button', { name: 'Lock prediction and continue' }))
     await user.click(screen.getByRole('button', { name: 'Apply change' }))
 
     expect(screen.getByRole('region', { name: 'Pixel Inspector for banana' })).toBeInTheDocument()
     expect(screen.getByLabelText('Original 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Initial attacked 32 by 32 Pixel crop')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Modified 32 by 32 Pixel crop')).toBeInTheDocument()
     expect(screen.getByLabelText('Enhanced difference 32 by 32 Pixel crop')).toBeInTheDocument()
     expect(screen.getByText(/for visual inspection only/i)).toBeInTheDocument()
