@@ -291,8 +291,8 @@ describe('App anonymous session onboarding', () => {
       method: 'POST',
       body: JSON.stringify({
         participant_id: participant.id,
-        game_version: 'mvp-formative-1',
-        study_phase: 'formative_1',
+        game_version: 'v2.0',
+        study_phase: 'formative_2',
         consent_version: 'v1',
         consent_confirmed: true,
       }),
