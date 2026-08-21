@@ -32,8 +32,8 @@ import type { ActiveStage, ComplexTransferApiParameters, ComplexTransferReflecti
 import './App.css'
 
 
-const GAME_VERSION = 'mvp-formative-1'
-const STUDY_PHASE = 'formative_1'
+const GAME_VERSION = 'v2.0'
+const STUDY_PHASE = 'formative_2'
 const CONSENT_VERSION = 'v1'
 
 function newParticipantCode(): string {
