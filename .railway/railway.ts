@@ -37,6 +37,11 @@ export default defineRailway(() => {
     },
     networking: {
       privateNetworkEndpoint: "attractive-blessing",
+      serviceDomains: {
+        "web-production-7c808.up.railway.app": {
+          port: 8080,
+        },
+      },
     },
     volumeMounts: {
       "/data": gameData,
