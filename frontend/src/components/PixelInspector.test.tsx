@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { PixelInspector } from './PixelInspector'
+import { FixedPixelRegionImage, PixelInspector } from './PixelInspector'
 
 
 class FakeImageData {
@@ -67,6 +67,7 @@ describe('PixelInspector', () => {
     FakeImage.requestedUrls = []
     microGridReadCount = 0
     modifiedOffset = 4
+    context.strokeRect.mockClear()
     vi.stubGlobal('Image', FakeImage)
     vi.stubGlobal('ImageData', FakeImageData)
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => context as unknown as CanvasRenderingContext2D)
@@ -88,20 +89,36 @@ describe('PixelInspector', () => {
     expect(screen.getByText('1. Original selected crop')).toBeInTheDocument()
     expect(screen.getByText('2. Initial (attacked) selected crop')).toBeInTheDocument()
     expect(screen.getByText('3. Adjusted selected crop')).toBeInTheDocument()
-    expect(screen.getByText('3. Enhanced Difference · 32×32')).toBeInTheDocument()
+    expect(screen.getByText('Enhanced Difference · Same 8×8 Region')).toBeInTheDocument()
+    expect(screen.getByLabelText('Three Stage 3 Enhanced Difference comparisons')).toBeInTheDocument()
+    expect(screen.getByText('1. Original ↔ Initial (attacked)')).toBeInTheDocument()
+    expect(screen.getByText('Changes introduced by the attack')).toBeInTheDocument()
+    expect(screen.getByText('2. Initial (attacked) ↔ Adjusted')).toBeInTheDocument()
+    expect(screen.getByText('Changes made during this repair')).toBeInTheDocument()
+    expect(screen.getByText('3. Original ↔ Adjusted')).toBeInTheDocument()
+    expect(screen.getByText('Difference remaining after repair')).toBeInTheDocument()
     expect(screen.getByText(/outlined 8×8 area below is enlarged into the Pixel Grids/)).toBeInTheDocument()
     expect(screen.getByText(/outlined 8×8 area below.*32×32 crop contains 1,024 pixels/)).toBeInTheDocument()
     expect(await screen.findByLabelText('Selected pixel RGB value change chart')).toBeInTheDocument()
-    expect(screen.getByLabelText('Enhanced difference 32 by 32 Pixel crop')).toBeInTheDocument()
-    expect(screen.getByLabelText('Enhanced difference colour guide')).toHaveTextContent('Black: No RGB value changed at that pixel.')
-    expect(screen.getByLabelText('Enhanced difference colour guide')).toHaveTextContent('Darker colour: A smaller RGB change.')
-    expect(screen.getByLabelText('Enhanced difference colour guide')).toHaveTextContent('Brighter colour: A larger RGB change.')
-    expect(screen.getByText(/A change of 3 is therefore displayed more brightly than a change of 1/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Enhanced difference from Initial \(attacked\) to Adjusted for the same 8 by 8 Pixel region/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Enhanced difference from Original to Initial \(attacked\) for the same 8 by 8 Pixel region/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/Enhanced difference from Original to Adjusted for the same 8 by 8 Pixel region/)).toBeInTheDocument()
+    expect(screen.getByText(/\|Adjusted − Initial \(attacked\)\| × 32/)).toBeInTheDocument()
+    expect(screen.getByText(/same 8×8 region as the RGB grids above/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Enhanced difference colour guide')).toHaveTextContent('Black: No stored RGB difference.')
+    expect(screen.getByLabelText('Enhanced difference colour guide')).toHaveTextContent('Grey: R, G and B changed by similar amounts.')
+    expect(screen.getByLabelText('Enhanced difference colour guide')).toHaveTextContent('Darker grey means smaller changes; lighter grey means larger changes.')
+    expect(screen.getByLabelText('Enhanced difference colour guide')).toHaveTextContent('Coloured: The RGB channels changed by different amounts.')
+    expect(screen.getByText(/each change by 4.*128, 128, 128.*grey/i)).toBeInTheDocument()
+    expect(screen.getByText(/A change of 3 is displayed more brightly than a change of 1/)).toBeInTheDocument()
     expect(screen.getByText(/\+3 and −3 have the same brightness/)).toBeInTheDocument()
     expect(screen.getAllByText('4/255').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByLabelText('Original strength 0/255, initial attacked strength 4/255, adjusted strength 4/255')).toBeInTheDocument()
     expect(screen.getByText('32×32 px · x=16–47, y=16–47')).toBeInTheDocument()
     expect(await screen.findByText('8×8 real Pixel Grid')).toBeInTheDocument()
+    const rgbSection = screen.getByRole('region', { name: 'Single pixel RGB comparison' })
+    const differenceSection = screen.getByText('Enhanced Difference · Same 8×8 Region').closest('section')
+    expect(rgbSection.compareDocumentPosition(differenceSection!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     expect(screen.getByText('R120 G80 B60')).toBeInTheDocument()
     expect(screen.getAllByText('R124 G76 B64')).toHaveLength(2)
     expect(screen.getByText('R 0')).toBeInTheDocument()
@@ -109,6 +126,8 @@ describe('PixelInspector', () => {
     expect(screen.getByText('B 0')).toBeInTheDocument()
     expect(screen.getByText(/does not mean that 4 pixels were changed/)).toBeInTheDocument()
     expect(screen.getByText(/This selected pixel is one example, not proof/)).toBeInTheDocument()
+    expect(screen.getByText(/A Pixel modification makes small RGB changes across many pixels/)).toBeInTheDocument()
+    expect(screen.queryByText(/FGSM makes small RGB changes/)).not.toBeInTheDocument()
     expect(context.strokeRect).toHaveBeenCalled()
 
     const overview = screen.getByLabelText('Select Pixel inspection region for strawberry')
@@ -123,6 +142,14 @@ describe('PixelInspector', () => {
     expect(context.strokeRect).toHaveBeenCalledWith(32, 32, 32, 32)
     expect(context.strokeRect).toHaveBeenCalledWith(121, 121, 78, 78)
     expect(context.imageSmoothingEnabled).toBe(false)
+  })
+
+  test('draws the same fixed 32 by 32 frame on a whole-image card', async () => {
+    render(<FixedPixelRegionImage title="Observe" imageUrl="observe.png" alt="Observe with fixed region" details="Starting Strength" />)
+
+    expect(screen.getByRole('img', { name: 'Observe with fixed region' })).toBeInTheDocument()
+    expect(screen.getByText('Orange frame: fixed 32×32 region')).toBeInTheDocument()
+    await waitFor(() => expect(context.strokeRect).toHaveBeenCalledWith(16, 16, 32, 32))
   })
 
   test('keeps the selected coordinate and refreshes its RGB change with a new strength image', async () => {
@@ -155,6 +182,16 @@ describe('PixelInspector', () => {
     expect(await screen.findByRole('grid', { name: 'Modified Pixel Grid' })).toBeInTheDocument()
     expect(screen.queryByRole('grid', { name: 'Initial attacked Pixel Grid' })).not.toBeInTheDocument()
     expect(screen.getByText('Selected pixel RGB values: Original → Modified')).toBeInTheDocument()
+  })
+
+  test('limits the Stage 1 introduction to the 32 by 32 Before and After crops', async () => {
+    render(<PixelInspector mode="introduction" originalUrl="original.png" modifiedUrl="modified.png" subject="strawberry" strength={4} />)
+
+    expect(await screen.findByLabelText('Original 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(screen.getByLabelText('Modified 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(screen.queryByText('Enhanced Difference')).not.toBeInTheDocument()
+    expect(screen.queryByRole('grid', { name: 'Original Pixel Grid' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Selected pixel RGB value change chart')).not.toBeInTheDocument()
   })
 
   test('reports missing images and dimension mismatches without throwing', async () => {

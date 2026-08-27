@@ -37,14 +37,14 @@ def test_t0_contains_the_verified_initial_combination() -> None:
     assert state.current_parameters.as_attempt_parameters() == {
         "patch_enabled": True,
         "patch_size_fraction": 0.30,
-        "patch_position_x": 0.60,
-        "patch_position_y": 0.20,
+        "patch_position_x": 0.75,
+        "patch_position_y": 0.25,
         "epsilon_pixels": 4.0,
         "blur_level": "high",
         "blur_radius": 16.0,
     }
-    assert state.current_classification.top1_label == "toaster"
-    assert state.expected_class == "ice cream"
+    assert state.current_classification.top1_label == "punching bag"
+    assert state.expected_class == "mailbox"
     assert state.attempt_index == 0
     assert state.attempts_remaining == 5
     assert not state.success
@@ -70,7 +70,7 @@ def test_one_factor_changes_and_other_current_values_persist() -> None:
     assert attempt.after_parameters.patch.size_fraction == 0.20
     assert attempt.after_parameters.pixel_strength == 4
     assert attempt.after_parameters.blur_level == "high"
-    assert attempt.before_classification.top1_label == "toaster"
+    assert attempt.before_classification.top1_label == "punching bag"
     assert attempt.after_classification.top1_label == "toaster"
     assert next_state.current_parameters == attempt.after_parameters
     assert next_state.attempt_index == 1
@@ -150,7 +150,7 @@ def test_correct_classification_finishes_without_encoding_a_repair_combination()
         selected_factor="blur",
         prediction="restore the expected class",
         after_parameters=changed,
-        after_classification=ClassificationState("ice cream", 0.61),
+        after_classification=ClassificationState("mailbox", 0.61),
     )
 
     assert attempt.success
@@ -162,7 +162,7 @@ def test_correct_classification_finishes_without_encoding_a_repair_combination()
             selected_factor="pixel",
             prediction="change",
             after_parameters=replace(state.current_parameters, pixel_strength=0),
-            after_classification=ClassificationState("ice cream"),
+            after_classification=ClassificationState("mailbox"),
         )
 
 
@@ -200,7 +200,7 @@ def test_reclassification_rebuilds_saves_and_calls_the_classifier(tmp_path: Path
     )
     state = initial_complex_transfer_state()
     parameters = replace(state.current_parameters, blur_level="low")
-    classifier = RecordingClassifier("ice cream")
+    classifier = RecordingClassifier("mailbox")
 
     result = reclassify_complex_transfer(
         state,
@@ -215,8 +215,8 @@ def test_reclassification_rebuilds_saves_and_calls_the_classifier(tmp_path: Path
     assert output_path.is_file()
     assert len(classifier.images) == 1
     assert classifier.images[0].mode == "RGB"
-    assert result.top1.label == "ice cream"
-    assert result.attempt.before_classification.top1_label == "toaster"
-    assert result.attempt.after_classification.top1_label == "ice cream"
+    assert result.top1.label == "mailbox"
+    assert result.attempt.before_classification.top1_label == "punching bag"
+    assert result.attempt.after_classification.top1_label == "mailbox"
     assert result.state.success
     assert result.state.attempts_remaining == 4

@@ -34,11 +34,11 @@ from backend.app.repositories.research_repository import ResearchRepository
 from backend.app.schemas import Prediction
 
 
-CASE_ID = "complex-transfer-icecream"
-EXPECTED_CLASS = "ice cream"
+CASE_ID = "complex-transfer-mailbox"
+EXPECTED_CLASS = "mailbox"
 MAX_ATTEMPTS = 5
 VALID_FACTORS = {"patch", "pixel", "blur"}
-REFERENCE_PARAMETERS = ComplexTransferParameters(PatchState(0.10, 0.80, 0.20), 0.0, "low")
+REFERENCE_PARAMETERS = ComplexTransferParameters(PatchState(0.0, 0.75, 0.25), 0.5, "none")
 LEARNING_REFLECTION_KEY = "complex_transfer_learning_reflection"
 NEW_ERROR_STRATEGY_KEY = "complex_transfer_new_error_strategy"
 
@@ -50,14 +50,14 @@ class ComplexTransferService:
         self.project_root = project_root.resolve()
         self.runtime_root = runtime_root.resolve()
         self.assets = ComplexTransferAssets(
-            self.project_root / "data/raw/candidate/icecream.png",
-            self.project_root / "data/perturbations/fgsm-screen/icecream.pt",
-            self.project_root / "data/perturbations/patches/toaster-universal.png",
+            self.project_root / "data/raw/candidate/final-transfer/mailbox-01/original.jpeg",
+            self.project_root / "data/perturbations/fgsm-final-transfer/mailbox-01.pt",
+            self.project_root / "data/perturbations/patches/mailbox-01-toaster.png",
         )
 
     @staticmethod
     def initial_parameters() -> ComplexTransferParameters:
-        return ComplexTransferParameters(PatchState(0.30, 0.60, 0.20), 4.0, "high")
+        return ComplexTransferParameters(PatchState(0.30, 0.75, 0.25), 4.0, "high")
 
     def initialize(self, session_id: str) -> ComplexTransferRunRead:
         stage_run = self.repository.get_latest_stage_run_for_case(session_id, CASE_ID)

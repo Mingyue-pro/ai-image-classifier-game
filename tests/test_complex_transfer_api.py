@@ -50,7 +50,7 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
         repository = ResearchRepository(database_session)
         participant = repository.create_participant("complex-participant")
         session = repository.create_session(participant.id, "v2")
-        classifier = FakeClassifier(["toaster", "toaster", "ice cream"])
+        classifier = FakeClassifier(["punching bag", "punching bag", "mailbox"])
         service = ComplexTransferService(repository, classifier, tmp_path, tmp_path / "runtime")
         service.assets = ComplexTransferAssets(source_path, delta_path, patch_path)
         app.dependency_overrides[get_complex_transfer_service] = lambda: service
@@ -59,13 +59,13 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
                 initialized = client.post(f"/game/sessions/{session.id}/complex-transfer")
                 assert initialized.status_code == 201
                 run = initialized.json()
-                assert run["current_top1"]["label"] == "toaster"
+                assert run["current_top1"]["label"] == "punching bag"
                 assert run["attempt_index"] == 0
                 assert run["remaining_attempts"] == 5
                 assert run["finished"] is False
                 assert run["attempts"] == []
                 assert run["current_parameters"] == {
-                    "patch": {"size_fraction": 0.3, "position_x": 0.6, "position_y": 0.2},
+                    "patch": {"size_fraction": 0.3, "position_x": 0.75, "position_y": 0.25},
                     "pixel_strength": 4.0,
                     "blur_level": "high",
                 }
@@ -74,7 +74,7 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
                 assert client.get(run["original_image_url"]).status_code == 200
                 stage_run_id = run["stage_run_id"]
                 patch_after = {
-                    "patch": {"size_fraction": 0.1, "position_x": 0.6, "position_y": 0.2},
+                    "patch": {"size_fraction": 0.15, "position_x": 0.75, "position_y": 0.25},
                     "pixel_strength": 4,
                     "blur_level": "high",
                 }
@@ -90,14 +90,14 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
                 invalid = client.post(f"/game/complex-transfer-runs/{stage_run_id}/reclassify", json={"selected_factor": "patch", "prediction": "stay_same", "parameters": patch_after | {"pixel_strength": 1}})
                 assert invalid.status_code == 409
 
-                first = client.post(f"/game/complex-transfer-runs/{stage_run_id}/reclassify", json={"selected_factor": "patch", "prediction": "change_uncertain", "prediction_reason": "Visible region may matter.", "parameters": patch_after, "after_classification": {"label": "ice cream"}})
+                first = client.post(f"/game/complex-transfer-runs/{stage_run_id}/reclassify", json={"selected_factor": "patch", "prediction": "change_uncertain", "prediction_reason": "Visible region may matter.", "parameters": patch_after, "after_classification": {"label": "mailbox"}})
                 assert first.status_code == 201
-                assert first.json()["after_top1"]["label"] == "toaster"
+                assert first.json()["after_top1"]["label"] == "punching bag"
                 assert first.json()["remaining_attempts"] == 4
                 pixel_after = patch_after | {"pixel_strength": 0}
                 second = client.post(f"/game/complex-transfer-runs/{stage_run_id}/reclassify", json={"selected_factor": "pixel", "prediction": "restore_correct", "parameters": pixel_after})
                 assert second.status_code == 201
-                assert second.json()["after_parameters"]["patch"]["size_fraction"] == 0.1
+                assert second.json()["after_parameters"]["patch"]["size_fraction"] == 0.15
                 assert second.json()["classification_restored"] is True
                 resumed = client.post(f"/game/sessions/{session.id}/complex-transfer")
                 assert resumed.status_code == 201
@@ -105,7 +105,7 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
                 assert summary["stage_run_id"] == stage_run_id
                 assert summary["finished"] is True
                 assert summary["exhausted"] is False
-                assert summary["initial_top1_label"] == "toaster"
+                assert summary["initial_top1_label"] == "punching bag"
                 assert [item["attempt_number"] for item in summary["attempts"]] == [1, 2]
                 assert summary["attempts"][0]["selected_factor"] == "patch"
                 assert summary["attempts"][1]["selected_factor"] == "pixel"
@@ -143,7 +143,7 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
             assert len(attempts) == 2
             assert attempts[0].tool_type == "complex_transfer_patch"
             assert attempts[0].prediction_reason == "Visible region may matter."
-            assert attempts[1].parameters_before["patch_size_fraction"] == 0.1
+            assert attempts[1].parameters_before["patch_size_fraction"] == 0.15
             assert attempts[1].parameters_after["epsilon_pixels"] == 0
             stage = database_session.scalar(select(StageRun).where(StageRun.id == stage_run_id))
             assert stage is not None and stage.attempt_count == 2
@@ -186,8 +186,8 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
             assert exported_stage["attempts"][0]["parameters_before"] == {
                 "patch_enabled": True,
                 "patch_size_fraction": 0.3,
-                "patch_position_x": 0.6,
-                "patch_position_y": 0.2,
+                "patch_position_x": 0.75,
+                "patch_position_y": 0.25,
                 "epsilon_pixels": 4.0,
                 "blur_level": "high",
                 "blur_radius": 16.0,
@@ -265,9 +265,9 @@ def test_exhausted_run_resumes_with_history_and_no_fallback_attempt(tmp_path: Pa
                 assert resumed["remaining_attempts"] == 0
                 assert len(resumed["attempts"]) == 5
                 assert resumed["reference_recoverable_parameters"] == {
-                    "patch": {"size_fraction": 0.1, "position_x": 0.8, "position_y": 0.2},
-                    "pixel_strength": 0.0,
-                    "blur_level": "low",
+                    "patch": {"size_fraction": 0.0, "position_x": 0.75, "position_y": 0.25},
+                    "pixel_strength": 0.5,
+                    "blur_level": "none",
                 }
                 sixth = client.post(
                     f"/game/complex-transfer-runs/{stage_run_id}/reclassify",

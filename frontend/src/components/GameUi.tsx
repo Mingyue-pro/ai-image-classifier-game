@@ -6,9 +6,9 @@ import type { Prediction } from '../types'
 export function AppHeader({ onHome }: { onHome: () => void }) {
   return (
     <header className="app-header">
-      <button className="brand brand-button" type="button" onClick={onHome} aria-label="Garden AI Bureau home">
+      <button className="brand brand-button" type="button" onClick={onHome} aria-label="AI Image Classification Garden home">
         <span className="brand-mark" aria-hidden="true"><Leaf size={20} /></span>
-        <span>Garden AI Bureau</span>
+        <span>AI Image Classification Garden</span>
       </button>
       <nav className="header-actions" aria-label="Application navigation">
         <button className="home-link" type="button" onClick={onHome}><Home size={16} /> Home</button>
@@ -37,8 +37,8 @@ export function StepProgress({ steps, currentIndex }: { steps: readonly string[]
   )
 }
 
-export function PanelTitle({ label, title, description }: { label: string; title: string; description: string }) {
-  return <div className="panel-title"><p>{label}{label === 'Manipulate' ? ' · This round’s repair direction' : ''}</p><h2>{title}</h2><span>{description}</span></div>
+export function PanelTitle({ label, title, description, className = '' }: { label: string; title: string; description: ReactNode; className?: string }) {
+  return <div className={`panel-title ${className}`.trim()}><p>{label}{label === 'Manipulate' ? ' · This round’s repair direction' : ''}</p><h2>{title}</h2><span>{description}</span></div>
 }
 
 export function StatusBadge({ tone, children }: { tone: 'neutral' | 'success' | 'warning'; children: ReactNode }) {
@@ -59,6 +59,6 @@ export function ClassificationResultCard({ title, prediction, correctLabel, reve
   )
 }
 
-export function SimulationNotice({ children = 'Stage 1 uses pre-generated modifications and offline-verified ResNet-34 results.' }: { children?: ReactNode }) {
+export function SimulationNotice({ children = 'Stage 1 uses fixed modifications to test classification results.' }: { children?: ReactNode }) {
   return <p className="simulation-notice"><ShieldCheck size={16} /> {children}</p>
 }

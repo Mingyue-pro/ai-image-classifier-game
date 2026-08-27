@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from backend.app.report_service import InvestigatorReportService, _attempt_method
+from backend.app.report_service import InvestigatorReportService, _attempt_method, _prediction_match
 
 
 class FakeRepository:
@@ -67,7 +67,7 @@ class ComplexTransferRepository:
         attempt_count = 3 if self.successful else 5
         stage = SimpleNamespace(
             id="complex-stage",
-            case_id="complex-transfer-icecream",
+            case_id="complex-transfer-mailbox",
             stage="transfer",
             attack_type="complex",
             completion_status="completed",
@@ -75,8 +75,8 @@ class ComplexTransferRepository:
             attempt_count=attempt_count,
             fallback_shown=False,
             classification_restored=self.successful,
-            initial_top1_label="toaster",
-            final_top1_label="ice cream" if self.successful else "eggnog",
+            initial_top1_label="wine bottle",
+            final_top1_label="mailbox" if self.successful else "eggnog",
         )
         factors = ["blur", "pixel", "patch"] if self.successful else ["pixel", "patch", "blur", "pixel", "patch"]
         attempts = []
@@ -103,8 +103,8 @@ class ComplexTransferRepository:
                 tool_type=f"complex_transfer_{factor}", parameters_before=before,
                 parameters_after=after, predicted_outcome="restore_correct",
                 prediction_reason="Test one factor." if number == 1 else None,
-                top1_before="toaster", top1_after="ice cream" if restored else "eggnog",
-                top5_after=[{"label": "ice cream" if restored else "eggnog", "probability": 0.7}],
+                top1_before="wine bottle", top1_after="mailbox" if restored else "eggnog",
+                top5_after=[{"label": "mailbox" if restored else "eggnog", "probability": 0.7}],
                 classification_changed=True, classification_restored=restored,
                 output_image_path=f"data/runtime/attempt-{number}.png",
             ))
@@ -161,6 +161,15 @@ def test_complex_transfer_methods_are_not_collapsed_into_patch() -> None:
     assert _attempt_method("complex", "complex_transfer_blur") == "Blur"
 
 
+def test_final_prediction_values_use_their_current_report_meanings() -> None:
+    assert _prediction_match("not_sure", changed=True, restored=True) is None
+    assert _prediction_match("change_uncertain", changed=True, restored=False) is True
+    assert _prediction_match("stay_same", changed=False, restored=False) is True
+    assert _prediction_match("restore_correct", changed=True, restored=True) is True
+    assert _prediction_match("adjust_strength", changed=True, restored=True) is True
+    assert _prediction_match("move_and_reduce", changed=False, restored=False) is False
+
+
 def test_success_report_builds_one_ordered_complex_transfer_timeline() -> None:
     report = InvestigatorReportService(ComplexTransferRepository(True), FakeCatalog()).build("complex-session")
     transfer = report["complex_transfer"]
@@ -179,6 +188,8 @@ def test_success_report_builds_one_ordered_complex_transfer_timeline() -> None:
     }
     assert transfer["verified_reference"] is None
     assert "reasoning_success" not in repr(transfer)
+    assert report["overview"]["decisive_predictions"] == 3
+    assert report["overview"]["prediction_matches"] == 1
 
 
 def test_exhausted_report_keeps_reference_separate_from_five_user_attempts() -> None:
@@ -191,6 +202,8 @@ def test_exhausted_report_keeps_reference_separate_from_five_user_attempts() -> 
     assert transfer["autonomous_success"] is False
     assert transfer["fallback_used"] is False
     assert transfer["classification_restored"] is False
-    assert transfer["verified_reference"]["classification"] == "ice cream"
-    assert transfer["verified_reference"]["parameters"]["patch_size_fraction"] == 0.1
+    assert transfer["verified_reference"]["classification"] == "mailbox"
+    assert transfer["verified_reference"]["parameters"]["patch_size_fraction"] == 0.0
+    assert transfer["verified_reference"]["parameters"]["epsilon_pixels"] == 0.5
+    assert transfer["verified_reference"]["parameters"]["blur_level"] == "none"
     assert all(item["attempt_number"] <= 5 for item in transfer["attempts"])

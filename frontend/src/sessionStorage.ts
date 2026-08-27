@@ -23,7 +23,7 @@ export function loadGameProgress(): StoredGameProgress {
   try {
     const parsed = JSON.parse(stored) as Partial<StoredGameProgress>
     const activeStage = parsed.activeStage
-    const isBackendRestorableComplexTransfer = activeStage?.playerCase.case_id === 'complex-transfer-icecream'
+    const isBackendRestorableComplexTransfer = activeStage?.playerCase.case_id === 'complex-transfer-mailbox'
     const canSafelyRestoreStage = isBackendRestorableComplexTransfer || (
       activeStage?.stageRun.completion_status === 'in_progress'
       && activeStage.stageRun.attempt_count === 0

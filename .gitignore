@@ -57,3 +57,4 @@ data/local-training-examples/
 
 # Runtime participant images generated during game sessions
 data/runtime/
+data/final-assets-manifest.json

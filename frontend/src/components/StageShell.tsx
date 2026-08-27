@@ -19,7 +19,7 @@ export function StageShell({ activeStage, children }: StageShellProps) {
   } : playerCase.stage === 'stage3' ? {
     subtitle: 'Plan, test, and revise repairs for a misclassified traffic light image.',
   } : {
-    subtitle: 'Apply the investigation process to a new ice cream image and evaluate the evidence.',
+    subtitle: 'Apply the investigation process to a new mailbox image and evaluate the evidence.',
   }
   return (
     <section className="stage-shell" aria-labelledby="stage-title">

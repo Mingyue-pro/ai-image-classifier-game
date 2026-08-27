@@ -132,10 +132,10 @@ describe('App anonymous session onboarding', () => {
     const complexRun = {
       stage_run_id: 'complex-run-1',
       image_url: '/game/complex-transfer-runs/complex-run-1/initial/image',
-      expected_class: 'ice cream',
-      current_top1: { label: 'toaster', probability: 0.49, class_index: 859 },
+      expected_class: 'mailbox',
+      current_top1: { label: 'punching bag', probability: 0.6432, class_index: 747 },
       current_parameters: {
-        patch: { size_fraction: 0.3, position_x: 0.6, position_y: 0.2 },
+        patch: { size_fraction: 0.3, position_x: 0.75, position_y: 0.25 },
         pixel_strength: 4,
         blur_level: 'high',
       },
@@ -145,14 +145,14 @@ describe('App anonymous session onboarding', () => {
       success: false,
       finished: false,
       exhausted: false,
-      initial_top1_label: 'toaster',
+      initial_top1_label: 'punching bag',
       attempts: [],
       reference_recoverable_parameters: {
-        patch: { size_fraction: 0.1, position_x: 0.8, position_y: 0.2 },
-        pixel_strength: 0,
-        blur_level: 'low',
+        patch: { size_fraction: 0, position_x: 0.75, position_y: 0.25 },
+        pixel_strength: 0.5,
+        blur_level: 'none',
       },
-      reference_top1_label: 'ice cream',
+      reference_top1_label: 'mailbox',
     }
     const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
       const url = input.toString()
@@ -172,8 +172,8 @@ describe('App anonymous session onboarding', () => {
       await screen.findByRole('heading', { name: 'Investigate a new classification error' }),
     ).toBeInTheDocument()
     expect(window.location.pathname).toBe('/transfer-challenge')
-    expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('toaster')
-    expect(screen.getByRole('img', { name: 'New Transfer image showing ice cream' })).toHaveAttribute(
+    expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('punching bag')
+    expect(screen.getByRole('img', { name: 'New Transfer image showing mailbox' })).toHaveAttribute(
       'src',
       'http://127.0.0.1:8000/game/complex-transfer-runs/complex-run-1/initial/image',
     )
@@ -187,20 +187,20 @@ describe('App anonymous session onboarding', () => {
   test('restores a completed Complex Transfer directly into its backend Summary', async () => {
     const completedComplexStage = {
       caseIndex: 6,
-      playerCase: { ...playerCase, case_id: 'complex-transfer-icecream', stage: 'transfer', subject: 'ice cream', attack_type: 'complex' },
-      stageRun: { ...stageRun, id: 'complex-run-completed', case_id: 'complex-transfer-icecream', stage: 'transfer', attack_type: 'complex', completion_status: 'completed', attempt_count: 1, success: true, classification_restored: true },
+      playerCase: { ...playerCase, case_id: 'complex-transfer-mailbox', stage: 'transfer', subject: 'mailbox', attack_type: 'complex' },
+      stageRun: { ...stageRun, id: 'complex-run-completed', case_id: 'complex-transfer-mailbox', stage: 'transfer', attack_type: 'complex', completion_status: 'completed', attempt_count: 1, success: true, classification_restored: true },
     }
     const parameters = {
-      patch: { size_fraction: 0.1, position_x: 0.8, position_y: 0.2 },
-      pixel_strength: 0,
-      blur_level: 'low',
+      patch: { size_fraction: 0, position_x: 0.75, position_y: 0.25 },
+      pixel_strength: 0.5,
+      blur_level: 'none',
     }
     const finishedRun = {
-      stage_run_id: 'complex-run-completed', image_url: '/game/stage-runs/complex-run-completed/attempts/1/image', expected_class: 'ice cream',
-      current_top1: { label: 'ice cream', probability: 0.7, class_index: 928 }, current_parameters: parameters,
+      stage_run_id: 'complex-run-completed', image_url: '/game/stage-runs/complex-run-completed/attempts/1/image', expected_class: 'mailbox',
+      current_top1: { label: 'mailbox', probability: 0.7, class_index: 637 }, current_parameters: parameters,
       attempt_index: 1, remaining_attempts: 4, max_attempts: 5, success: true, finished: true, exhausted: false,
-      initial_top1_label: 'toaster', reference_recoverable_parameters: parameters, reference_top1_label: 'ice cream',
-      attempts: [{ attempt_number: 1, selected_factor: 'blur', prediction: 'restore_correct', before_parameters: { ...parameters, blur_level: 'high' }, after_parameters: parameters, before_classification: 'toaster', after_classification: 'ice cream', classification_restored: true, timestamp: '2026-08-16T08:00:00Z' }],
+      initial_top1_label: 'punching bag', reference_recoverable_parameters: parameters, reference_top1_label: 'mailbox',
+      attempts: [{ attempt_number: 1, selected_factor: 'patch', prediction: 'restore_correct', before_parameters: { ...parameters, patch: { size_fraction: 0.3, position_x: 0.75, position_y: 0.25 }, blur_level: 'high' }, after_parameters: parameters, before_classification: 'punching bag', after_classification: 'mailbox', classification_restored: true, timestamp: '2026-08-16T08:00:00Z' }],
     }
     sessionStorage.setItem(GAME_PROGRESS_STORAGE_KEY, JSON.stringify({ participant, researchSession, activeStage: completedComplexStage }))
     window.history.replaceState({}, '', '/transfer-challenge')
@@ -227,9 +227,18 @@ describe('App anonymous session onboarding', () => {
     render(<App />)
 
     expect(window.location.pathname).toBe('/agreement')
-    expect(screen.getByRole('heading', { name: /Enter the garden/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Enter the Investigation Garden/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /Investigate How Image Changes Affect AI Predictions/i })).toBeInTheDocument()
+    expect(screen.getByText('Four-stage learning progression')).toBeInTheDocument()
+    const journeyMap = screen.getByRole('img', { name: 'Learning journey map' })
+    expect(journeyMap).toHaveTextContent('Tutorial')
+    expect(journeyMap).toHaveTextContent('Condition Training')
+    expect(journeyMap).toHaveTextContent('Repair Investigation')
+    expect(journeyMap).toHaveTextContent('Transfer')
     expect(screen.getByRole('heading', { name: 'Follow the learning journey' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Participation agreement' })).toBeInTheDocument()
+    expect(screen.getByText('Please confirm that you have read the participant information and agree to take part in this game.')).toBeInTheDocument()
+    expect(screen.queryByText(/formative evaluation/i)).not.toBeInTheDocument()
     expect(screen.getByText('No name or email is requested.')).toBeInTheDocument()
     expect(screen.getByText('Your choices, parameters, predictions, and answers are recorded.')).toBeInTheDocument()
     expect(screen.getByText('You can stop the activity at any time.')).toBeInTheDocument()
@@ -291,12 +300,20 @@ describe('App anonymous session onboarding', () => {
       method: 'POST',
       body: JSON.stringify({
         participant_id: participant.id,
-        game_version: 'v2.0',
-        study_phase: 'formative_2',
+        game_version: 'v3.0',
+        study_phase: 'final_evaluation',
         consent_version: 'v1',
         consent_confirmed: true,
       }),
     })
+
+    await user.click(screen.getByRole('button', { name: 'Home' }))
+    expect(window.location.pathname).toBe('/agreement')
+    expect(screen.getByRole('heading', { name: /Enter the Investigation Garden/ })).toBeInTheDocument()
+    const beginInvestigation = screen.getByRole('link', { name: 'Begin investigation' })
+    expect(beginInvestigation).toHaveAttribute('href', '#stage-overview')
+    await user.click(beginInvestigation)
+    expect(window.location.hash).toBe('#stage-overview')
   })
 
   test('shows a server error and reuses the participant when retrying', async () => {
@@ -388,7 +405,7 @@ describe('App anonymous session onboarding', () => {
     expect(screen.getByText(/Complete four fixed investigations/)).toBeInTheDocument()
     expect(screen.getByText('Baseline classification')).toBeInTheDocument()
     expect(screen.getByText('AI confidence score:').parentElement).toHaveTextContent('90.0%')
-    await user.click(screen.getByRole('button', { name: 'Next: select a change' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Select Change' }))
     const patchButtons = [screen.getByRole('button', { name: /Small Patch/i }), screen.getByRole('button', { name: /Large Patch/i })]
     const pixelButtons = [screen.getByRole('button', { name: /Low-strength Pixel change/i }), screen.getByRole('button', { name: /High-strength Pixel change/i })]
     expect(patchButtons).toHaveLength(2)
@@ -474,7 +491,7 @@ describe('App anonymous session onboarding', () => {
 
     render(<App />)
 
-    await user.click(await screen.findByRole('button', { name: 'Next: select a change' }))
+    await user.click(await screen.findByRole('button', { name: 'Continue to Select Change' }))
     await user.click(
       screen.getByRole('button', {
         name: /Large Patch/i,
@@ -485,7 +502,7 @@ describe('App anonymous session onboarding', () => {
         name: "The AI's main judgement will change",
       }),
     )
-    await user.click(screen.getByRole('button', { name: 'Lock prediction and continue' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
 
     expect(fetchMock.mock.calls.some(([url]) =>
       url.toString().endsWith(`/game/stage-runs/${stageRun.id}/apply-choice`),
@@ -509,16 +526,34 @@ describe('App anonymous session onboarding', () => {
     await user.click(screen.getByRole('button', { name: 'Return to Select Change' }))
     await user.click(screen.getByRole('button', { name: /High-strength Pixel change/i }))
     await user.click(screen.getByRole('radio', { name: "The AI's main judgement will change" }))
-    await user.click(screen.getByRole('button', { name: 'Lock prediction and continue' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
     await user.click(screen.getByRole('button', { name: 'Apply change' }))
 
+    expect(screen.getByAltText('Modified banana preview')).toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Pixel Inspector for banana' })).toBeInTheDocument()
     expect(screen.getByLabelText('Original 32 by 32 Pixel crop')).toBeInTheDocument()
     expect(screen.queryByLabelText('Initial attacked 32 by 32 Pixel crop')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Modified 32 by 32 Pixel crop')).toBeInTheDocument()
-    expect(screen.getByLabelText('Enhanced difference 32 by 32 Pixel crop')).toBeInTheDocument()
-    expect(screen.getByText(/for visual inspection only/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Enhanced difference 32 by 32 Pixel crop')).not.toBeInTheDocument()
+    expect(screen.queryByRole('grid', { name: 'Original Pixel Grid' })).not.toBeInTheDocument()
+    expect(screen.getByText('The changes may still be difficult to see.')).toBeInTheDocument()
+    expect(screen.getByText(/You have chosen a Pixel modification and previewed the modified image/)).toBeInTheDocument()
+    expect(screen.getByText(/Next, reclassify the image to test your prediction/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue to Reclassify' })).toBeEnabled()
     await user.click(screen.getByRole('button', { name: 'Continue to Reclassify' }))
     expect(screen.getByRole('button', { name: 'Reclassify image' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
+    await screen.findByRole('heading', { name: 'New classification result' })
+    await user.click(screen.getByRole('button', { name: 'Continue to Compare' }))
+
+    const classificationEvidence = screen.getByRole('region', { name: 'Before and after image classification evidence' })
+    const pixelInspector = screen.getByRole('region', { name: 'Pixel Inspector for banana' })
+    expect(classificationEvidence).toHaveTextContent('Before classification')
+    expect(classificationEvidence).toHaveTextContent('After classification')
+    expect(screen.getByAltText('Original banana before modification')).toBeInTheDocument()
+    expect(screen.getByAltText('Modified banana after modification')).toBeInTheDocument()
+    expect(classificationEvidence.compareDocumentPosition(pixelInspector)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(screen.getByLabelText('Original 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(screen.getByLabelText('Modified 32 by 32 Pixel crop')).toBeInTheDocument()
   })
 })
