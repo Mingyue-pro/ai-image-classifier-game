@@ -9,6 +9,8 @@ __pycache__
 *.pyc
 .pytest_cache
 frontend/node_modules
+node_modules
+.railway/node_modules
 frontend/dist
 frontend/coverage
 data
