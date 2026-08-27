@@ -11,8 +11,16 @@ from backend.app.repositories.research_repository import ResearchRepository
 
 
 FALLBACK_PREDICTIONS = {"verified_fallback", "verified_fallback_will_restore"}
-TRANSFER_REPAIR_HYPOTHESES = {
-    "move_patch", "reduce_patch", "move_and_resize_patch", "reduce_pixel_strength"
+UNCERTAIN_PREDICTIONS = {"uncertain", "not_sure"}
+RESTORATION_PREDICTIONS = {
+    "restored",
+    "restore_correct",
+    "move_patch",
+    "reduce_patch",
+    "move_and_reduce",
+    "move_and_resize_patch",
+    "adjust_strength",
+    "reduce_pixel_strength",
 }
 STAGE_NAMES = {
     "stage1": "Tutorial",
@@ -20,7 +28,7 @@ STAGE_NAMES = {
     "stage3": "Repair Investigation",
     "transfer": "Transfer",
 }
-COMPLEX_TRANSFER_CASE_ID = "complex-transfer-icecream"
+COMPLEX_TRANSFER_CASE_ID = "complex-transfer-mailbox"
 COMPLEX_TRANSFER_METHODS = {
     "complex_transfer_patch": "Patch",
     "complex_transfer_pixel": "Pixel",
@@ -35,13 +43,13 @@ def _attempt_method(attack_type: str, tool_type: str) -> str:
 
 
 def _prediction_match(prediction: str | None, changed: bool, restored: bool) -> bool | None:
-    if prediction in (None, "uncertain") or prediction in FALLBACK_PREDICTIONS:
+    if prediction is None or prediction in UNCERTAIN_PREDICTIONS or prediction in FALLBACK_PREDICTIONS:
         return None
-    if prediction == "classification_changes":
+    if prediction in {"classification_changes", "change_uncertain"}:
         return changed
-    if prediction == "classification_stays_same":
+    if prediction in {"classification_stays_same", "stay_same"}:
         return not changed
-    if prediction == "restored":
+    if prediction in RESTORATION_PREDICTIONS:
         return restored
     if prediction == "still_incorrect":
         return not restored
@@ -79,7 +87,7 @@ class InvestigatorReportService:
         for attempt in records["attempts"]:
             stage = stage_by_id[attempt.stage_run_id]
             correct_label = (
-                "ice cream"
+                EXPECTED_CLASS
                 if stage.case_id == COMPLEX_TRANSFER_CASE_ID
                 else str(self.case_catalog.get_case(stage.case_id)["correct_label"])
             )
@@ -89,20 +97,13 @@ class InvestigatorReportService:
                 attempt.classification_changed,
                 attempt.classification_restored,
             )
-            if (
-                stage.stage == "transfer"
-                and attempt.predicted_outcome in TRANSFER_REPAIR_HYPOTHESES
-            ):
-                # In Transfer the learner predicts a repair direction rather
-                # than a separate outcome. Restoration supports that hypothesis.
-                match = attempt.classification_restored
             if fallback:
                 fallback_count += 1
             else:
                 autonomous_count += 1
                 if attempt.predicted_outcome:
                     prediction_count += 1
-                if attempt.predicted_outcome == "uncertain":
+                if attempt.predicted_outcome in UNCERTAIN_PREDICTIONS:
                     uncertain_count += 1
                 if match is not None:
                     decisive_matches.append(match)

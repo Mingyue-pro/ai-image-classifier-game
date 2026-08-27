@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react'
 
-export type InvestigationStepId = 'observe' | 'predict' | 'manipulate' | 'reclassify' | 'compare'
+export type InvestigationStepId = 'observe' | 'predict' | 'manipulate' | 'reclassify' | 'compare' | 'decide'
 export type InvestigationOrderResult = {
   initial_order: InvestigationStepId[]
   final_order: InvestigationStepId[]
@@ -9,14 +9,15 @@ export type InvestigationOrderResult = {
   correct_on_first_try: boolean
 }
 
-const CORRECT_ORDER: InvestigationStepId[] = ['observe', 'predict', 'manipulate', 'reclassify', 'compare']
-const INITIAL_ORDER: InvestigationStepId[] = ['compare', 'observe', 'reclassify', 'predict', 'manipulate']
+const CORRECT_ORDER: InvestigationStepId[] = ['observe', 'predict', 'manipulate', 'reclassify', 'compare', 'decide']
+const INITIAL_ORDER: InvestigationStepId[] = ['compare', 'observe', 'decide', 'reclassify', 'predict', 'manipulate']
 const LABELS: Record<InvestigationStepId, string> = {
   observe: 'Observe the image and current classification',
   predict: 'Predict a repair direction',
   manipulate: 'Change one repair setting',
   reclassify: 'Reclassify the modified image',
   compare: 'Compare the new result with the previous result',
+  decide: 'Decide what to investigate next if the result is still incorrect',
 }
 
 function isCorrect(order: InvestigationStepId[]): boolean {

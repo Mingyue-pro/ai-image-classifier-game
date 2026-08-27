@@ -32,8 +32,8 @@ import type { ActiveStage, ComplexTransferApiParameters, ComplexTransferReflecti
 import './App.css'
 
 
-const GAME_VERSION = 'v2.0'
-const STUDY_PHASE = 'formative_2'
+const GAME_VERSION = 'v3.0'
+const STUDY_PHASE = 'final_evaluation'
 const CONSENT_VERSION = 'v1'
 
 function newParticipantCode(): string {
@@ -54,6 +54,7 @@ function GameApplication() {
     restoredProgress.activeStage,
   )
   const [showReport, setShowReport] = useState(location.pathname === APP_PATHS.complete)
+  const [homeRequested, setHomeRequested] = useState(location.pathname === APP_PATHS.agreement)
   const [isStarting, setIsStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
   const [isLoadingStage, setIsLoadingStage] = useState(false)
@@ -85,22 +86,24 @@ function GameApplication() {
 
   useEffect(() => {
     if (location.pathname === APP_PATHS.agreement) return
-    const expectedPath = showReport ? APP_PATHS.complete : activeStage !== null
+    const expectedPath = homeRequested ? APP_PATHS.agreement : showReport ? APP_PATHS.complete : activeStage !== null
       ? pathForStage(activeStage.playerCase.stage)
       : researchSession !== null
         ? pathForStageNumber(requestedStage)
         : APP_PATHS.agreement
     if (location.pathname !== expectedPath) navigate(expectedPath, { replace: true })
-  }, [activeStage, location.pathname, navigate, requestedStage, researchSession, showReport])
+  }, [activeStage, homeRequested, location.pathname, navigate, requestedStage, researchSession, showReport])
 
   function returnHome() {
     setShowReport(false)
+    setHomeRequested(true)
     setActiveStage(null)
     navigate(APP_PATHS.agreement, { replace: true })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function chooseHomeStage(stage: 1 | 2 | 3 | 4) {
+    setHomeRequested(false)
     setRequestedStage(stage)
     if (researchSession === null) {
       window.setTimeout(() => document.getElementById('participation-agreement')?.scrollIntoView({ behavior: 'smooth' }), 0)
@@ -165,7 +168,7 @@ function GameApplication() {
   }, [activeStage, researchSession, stageThreeCases.length])
 
   useEffect(() => {
-    if (researchSession === null || activeStage === null || activeStage.playerCase.stage !== 'transfer' || activeStage.playerCase.case_id === 'complex-transfer-icecream' || transferCases.length >= 2 || loadingMissingTransfer.current) return
+    if (researchSession === null || activeStage === null || activeStage.playerCase.stage !== 'transfer' || activeStage.playerCase.case_id === 'complex-transfer-mailbox' || transferCases.length >= 2 || loadingMissingTransfer.current) return
     loadingMissingTransfer.current = true
     const currentSession = researchSession
     const missingIndex = activeStage.caseIndex === 6 ? 7 : 6
@@ -182,7 +185,7 @@ function GameApplication() {
   }, [activeStage, researchSession, transferCases.length])
 
   useEffect(() => {
-    if (researchSession === null || activeStage?.playerCase.case_id !== 'complex-transfer-icecream' || complexTransferRun !== null || loadingMissingTransfer.current) return
+    if (researchSession === null || activeStage?.playerCase.case_id !== 'complex-transfer-mailbox' || complexTransferRun !== null || loadingMissingTransfer.current) return
     loadingMissingTransfer.current = true
     initializeComplexTransfer(researchSession.id)
       .then(async (run) => {
@@ -216,6 +219,7 @@ function GameApplication() {
         consent_confirmed: true,
       })
       setResearchSession(session)
+      setHomeRequested(false)
       navigate(APP_PATHS.guidedDiscovery)
     } catch (error) {
       setStartError(
@@ -315,12 +319,12 @@ function GameApplication() {
       const active: ActiveStage = {
         caseIndex: 6,
         playerCase: {
-          case_id: 'complex-transfer-icecream', stage: 'transfer', subject: 'ice cream', attack_type: 'complex', interaction_mode: 'runtime_complex_transfer', correct_label: run.expected_class,
+          case_id: 'complex-transfer-mailbox', stage: 'transfer', subject: 'mailbox', attack_type: 'complex', interaction_mode: 'runtime_complex_transfer', correct_label: run.expected_class,
           initial_state_id: 'T0', initial_image_url: run.image_url, original_image_url: run.original_image_url, initial_top1: run.current_top1,
           parameter_rules: [], max_attempts: run.max_attempts, available_states: [],
         },
         stageRun: {
-          id: run.stage_run_id, session_id: researchSession.id, case_id: 'complex-transfer-icecream', stage: 'transfer', attack_type: 'complex', completion_status: 'in_progress',
+          id: run.stage_run_id, session_id: researchSession.id, case_id: 'complex-transfer-mailbox', stage: 'transfer', attack_type: 'complex', completion_status: 'in_progress',
           success: run.success, attempt_count: run.attempt_index, used_hint: false, fallback_shown: false, initial_top1_label: run.current_top1.label,
           final_top1_label: null, classification_restored: run.success, started_at: new Date().toISOString(), completed_at: null,
         },
@@ -371,7 +375,7 @@ function GameApplication() {
       setComplexTransferReflection(await getComplexTransferReflection(refreshed.stage_run_id))
     }
     setComplexTransferRun(authoritativeRun)
-    setActiveStage((current) => current?.playerCase.case_id === 'complex-transfer-icecream' ? {
+    setActiveStage((current) => current?.playerCase.case_id === 'complex-transfer-mailbox' ? {
       ...current,
       stageRun: {
         ...current.stageRun,
@@ -467,20 +471,23 @@ function GameApplication() {
           <div className="home-hero">
             <div className="welcome-copy">
               <p className="eyebrow"><Search size={16} /> Interactive learning investigation</p>
-              <h1 id="welcome-title">Enter the garden.<br /><span>Investigate the evidence.</span></h1>
+              <h1 id="welcome-title">
+                <span className="home-title-primary">Enter the Investigation Garden</span>
+                <span className="home-title-secondary">Investigate How Image Changes Affect AI Predictions</span>
+              </h1>
               <p className="welcome-introduction">Plan image modifications, predict before every result, compare classifier evidence, and revise your hypotheses without turning one case into a universal rule.</p>
-              <div className="learning-progression"><Compass size={24} /><span><strong>Three-stage learning progression</strong><small>Tutorial → controlled condition comparison → independent repair investigation → transfer and boundary reasoning.</small></span></div>
-              <a className="primary-button home-start-link" href="#participation-agreement">Begin investigation <ArrowRight size={18} /></a>
+              <div className="learning-progression"><Compass size={24} /><span><strong>Four-stage learning progression</strong><small>Tutorial → controlled condition comparison → independent repair investigation → transfer and boundary reasoning.</small></span></div>
+              <a className="primary-button home-start-link" href={researchSession === null ? '#participation-agreement' : '#stage-overview'}>Begin investigation <ArrowRight size={18} /></a>
             </div>
-            <div className="garden-map" aria-label="Learning journey map"><div className="garden-sky">☀️</div><div className="garden-path" /><div className="garden-stop garden-stop--one"><span>01</span><b>🌿</b><strong>Tutorial Hedge</strong></div><div className="garden-stop garden-stop--two"><span>02</span><b>⛲</b><strong>Condition Fountain</strong></div><div className="garden-stop garden-stop--three"><span>03</span><b>🏛️</b><strong>Repair Glasshouse</strong></div></div>
+            <div className="garden-map" role="img" aria-label="Learning journey map"><div className="garden-sky">☀️</div><div className="garden-path" /><div className="garden-stop garden-stop--one"><span>01</span><b>🌿</b><strong>Tutorial</strong></div><div className="garden-stop garden-stop--two"><span>02</span><b>⛲</b><strong>Condition Training</strong></div><div className="garden-stop garden-stop--three"><span>03</span><b>🏛️</b><strong>Repair Investigation</strong></div><div className="garden-stop garden-stop--four"><span>04</span><b>🧭</b><strong>Transfer</strong></div></div>
           </div>
-          <section className="stage-overview" aria-labelledby="stage-overview-title"><p className="eyebrow">Choose a stage</p><h2 id="stage-overview-title">Follow the learning journey</h2><div className="home-stage-grid">
+          <section className="stage-overview" id="stage-overview" aria-labelledby="stage-overview-title"><p className="eyebrow">Choose a stage</p><h2 id="stage-overview-title">Follow the learning journey</h2><div className="home-stage-grid">
             <button type="button" onClick={() => chooseHomeStage(1)}><span>01</span><Leaf /><h3>Tutorial</h3><p>Learn that a modification may change the AI's main classification judgement — or may not.</p><strong>Open stage <ArrowRight size={16} /></strong></button>
             <button type="button" onClick={() => chooseHomeStage(2)}><span>02</span><FlaskConical /><h3>Condition Training</h3><p>Explore how parameters of the same modification can produce different outcomes.</p><strong>Open stage <ArrowRight size={16} /></strong></button>
             <button type="button" onClick={() => chooseHomeStage(3)}><span>03</span><Search /><h3>Repair Investigation</h3><p>Form a repair hypothesis, make one controlled adjustment, and compare evidence.</p><strong>Open stage <ArrowRight size={16} /></strong></button>
             <button type="button" onClick={() => chooseHomeStage(4)}><span>04</span><Compass /><h3>Transfer</h3><p>Apply the investigation process to a new image. Earlier stages are recommended first.</p><strong>Open stage <ArrowRight size={16} /></strong></button>
           </div></section>
-          {researchSession === null ? <div className="consent-card" id="participation-agreement"><p className="step-label">Before you begin</p><h2>Participation agreement</h2><p>Please confirm that you have read the participant information and agree to take part in this formative evaluation.</p><ul className="study-summary" aria-label="Participation information"><li><ShieldCheck size={17} /> No name or email is requested.</li><li><ShieldCheck size={17} /> Your choices, parameters, predictions, and answers are recorded.</li><li><ShieldCheck size={17} /> You can stop the activity at any time.</li></ul><label className="consent-control"><input type="checkbox" checked={consentConfirmed} onChange={(event) => setConsentConfirmed(event.target.checked)} /><span>I have read the information and agree to participate.</span></label>{startError ? <p className="error-message" role="alert">{startError}</p> : null}<button className="primary-button" type="button" disabled={!consentConfirmed || isStarting} onClick={() => void startAnonymousSession()}>{isStarting ? 'Preparing your session…' : 'Start the activity'}</button></div> : <div className="home-session-notice"><ShieldCheck size={22} /><div><strong>Anonymous session active</strong><p>Choose Tutorial, Condition Training, or Repair Investigation above.</p></div></div>}
+          {researchSession === null ? <div className="consent-card" id="participation-agreement"><p className="step-label">Before you begin</p><h2>Participation agreement</h2><p>Please confirm that you have read the participant information and agree to take part in this game.</p><ul className="study-summary" aria-label="Participation information"><li><ShieldCheck size={17} /> No name or email is requested.</li><li><ShieldCheck size={17} /> Your choices, parameters, predictions, and answers are recorded.</li><li><ShieldCheck size={17} /> You can stop the activity at any time.</li></ul><label className="consent-control"><input type="checkbox" checked={consentConfirmed} onChange={(event) => setConsentConfirmed(event.target.checked)} /><span>I have read the information and agree to participate.</span></label>{startError ? <p className="error-message" role="alert">{startError}</p> : null}<button className="primary-button" type="button" disabled={!consentConfirmed || isStarting} onClick={() => void startAnonymousSession()}>{isStarting ? 'Preparing your session…' : 'Start the activity'}</button></div> : <div className="home-session-notice"><ShieldCheck size={22} /><div><strong>Anonymous session active</strong><p>Choose Tutorial, Condition Training, Repair Investigation, or Transfer above.</p></div></div>}
         </section>
       ) : showReport && researchSession !== null ? (
         <InvestigatorReport sessionId={researchSession.id} onHome={() => { setShowReport(false); returnHome() }} />
@@ -493,7 +500,7 @@ function GameApplication() {
             priorSummaries={stageOneSummaries}
             onStageComplete={finishStageOne}
             onContinue={() => void beginStageTwo()}
-          /> : activeStage.playerCase.stage === 'stage2' ? stageTwoCases.length < 2 ? <p className="loading-message">Loading both Condition Investigation experiments…</p> : <StageTwoFlow cases={stageTwoCases} nextError={stageError} onStageComplete={finishStageTwo} onContinue={() => void beginStageThree()} isMovingNext={isLoadingStage} /> : activeStage.playerCase.stage === 'stage3' ? stageThreeCases.length < 2 ? <p className="loading-message">Loading both Repair Investigation cases…</p> : <RepairInvestigationFlow cases={stageThreeCases} nextError={stageError} onStageComplete={finishStageThree} onContinue={() => void beginTransfer()} isMovingNext={isLoadingStage} /> : complexTransferRun && (!complexTransferRun.finished || complexTransferReflection !== null) ? <ComplexTransferFlow imageUrl={resolveApiUrl(complexTransferRun.image_url)} originalImageUrl={resolveApiUrl(complexTransferRun.original_image_url ?? complexTransferRun.image_url)} subject="ice cream" currentPrediction={complexTransferRun.current_top1} attemptIndex={complexTransferRun.attempt_index} maxAttempts={complexTransferRun.max_attempts} initialClassification={complexTransferRun.initial_top1_label} attemptHistory={complexTransferRun.attempts} runFinished={complexTransferRun.finished} runSuccess={complexTransferRun.success} referenceParameters={complexParameters(complexTransferRun.reference_recoverable_parameters)} referenceTop1Label={complexTransferRun.reference_top1_label} currentParameters={complexParameters(complexTransferRun.current_parameters)} onPlanConfirmed={() => undefined} onPreview={previewComplexManipulation} onReclassify={runComplexReclassification} onDecideNext={refreshComplexTransferForNextAttempt} reflectionCompleted={complexTransferReflection?.completed ?? false} onSubmitReflection={submitComplexTransferReflection} onViewReport={viewInvestigatorReport} onTimingEvent={recordComplexTransferTiming} /> : <p className="loading-message">Loading Complex Transfer…</p>}
+          /> : activeStage.playerCase.stage === 'stage2' ? stageTwoCases.length < 2 ? <p className="loading-message">Loading both Condition Investigation experiments…</p> : <StageTwoFlow cases={stageTwoCases} nextError={stageError} onStageComplete={finishStageTwo} onContinue={() => void beginStageThree()} isMovingNext={isLoadingStage} /> : activeStage.playerCase.stage === 'stage3' ? stageThreeCases.length < 2 ? <p className="loading-message">Loading both Repair Investigation cases…</p> : <RepairInvestigationFlow cases={stageThreeCases} nextError={stageError} onStageComplete={finishStageThree} onContinue={() => void beginTransfer()} isMovingNext={isLoadingStage} /> : complexTransferRun && (!complexTransferRun.finished || complexTransferReflection !== null) ? <ComplexTransferFlow imageUrl={resolveApiUrl(complexTransferRun.image_url)} originalImageUrl={resolveApiUrl(complexTransferRun.original_image_url ?? complexTransferRun.image_url)} subject="mailbox" currentPrediction={complexTransferRun.current_top1} attemptIndex={complexTransferRun.attempt_index} maxAttempts={complexTransferRun.max_attempts} initialClassification={complexTransferRun.initial_top1_label} attemptHistory={complexTransferRun.attempts} runFinished={complexTransferRun.finished} runSuccess={complexTransferRun.success} referenceParameters={complexParameters(complexTransferRun.reference_recoverable_parameters)} referenceTop1Label={complexTransferRun.reference_top1_label} currentParameters={complexParameters(complexTransferRun.current_parameters)} onPlanConfirmed={() => undefined} onPreview={previewComplexManipulation} onReclassify={runComplexReclassification} onDecideNext={refreshComplexTransferForNextAttempt} reflectionCompleted={complexTransferReflection?.completed ?? false} onSubmitReflection={submitComplexTransferReflection} onViewReport={viewInvestigatorReport} onTimingEvent={recordComplexTransferTiming} /> : <p className="loading-message">Loading Complex Transfer…</p>}
         </StageShell>
       ) : (
         <section className="session-ready" aria-labelledby="session-ready-title">

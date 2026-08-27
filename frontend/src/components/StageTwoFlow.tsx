@@ -5,8 +5,10 @@ import { Move, Sparkles } from 'lucide-react'
 import { completeStageRun, previewRuntimeImage, reclassifyRuntimeImage, resolveApiUrl, saveStageResponse } from '../api'
 import type { ActiveStage, ParameterRule, StageTwoAttempt } from '../types'
 import { ClassificationResultCard, ImagePreviewCard, PanelTitle, SimulationNotice, StatusBadge, StepProgress } from './GameUi'
-import { PixelInspector } from './PixelInspector'
-import { PixelLearningNote } from './PixelLearning'
+import { FixedPixelRegionImage, PixelInspector } from './PixelInspector'
+import { PixelCompareLayout } from './PixelCompareLayout'
+import { PixelConceptNote, PixelReclassifyConnection, PixelStrengthHelp } from './PixelLearning'
+import { PixelManipulateLayout } from './PixelManipulateLayout'
 
 type Phase = 'observe' | 'manipulate' | 'predict' | 'reclassify' | 'compare' | 'reflection' | 'summary' | 'complete'
 type Method = 'Patch' | 'Pixel'
@@ -26,8 +28,8 @@ const PATCH_POSITIONS = [
   { label: 'Top left', x: 0.4, y: 0.4, left: '18%', top: '20%' },
   { label: 'Top right', x: 0.6, y: 0.4, left: '82%', top: '20%' },
   { label: 'Centre', x: 0.5, y: 0.5, left: '50%', top: '50%' },
-  { label: 'Bottom left', x: 0.4, y: 0.6, left: '18%', top: '80%' },
-  { label: 'Bottom right', x: 0.6, y: 0.6, left: '82%', top: '80%' },
+  { label: 'Bottom left', x: 0.4, y: 0.7, left: '18%', top: '80%' },
+  { label: 'Bottom right', x: 0.6, y: 0.7, left: '82%', top: '80%' },
 ] as const
 
 function methodFor(activeCase: ActiveStage): Method {
@@ -75,6 +77,8 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
   const [reflectionChoice, setReflectionChoice] = useState('')
   const [completedCases, setCompletedCases] = useState<ActiveStage[] | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [pixelStrengthSelected, setPixelStrengthSelected] = useState(false)
+  const [pixelSelectionError, setPixelSelectionError] = useState<string | null>(null)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [reclassifyPrompt, setReclassifyPrompt] = useState<string | null>(null)
@@ -82,7 +86,6 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
 
   const selectedCase = cases.find((item) => methodFor(item) === selectedMethod) ?? cases[0]
   const caseAttempts = (method: Method) => attempts.filter((attempt) => attempt.method === method)
-  const latestAttempt = (method: Method) => caseAttempts(method).at(-1)
   const changedFromStartingResult = (attempt: StageTwoAttempt) => {
     const activeCase = cases.find((item) => methodFor(item) === attempt.method)
     return attempt.action.top1.label !== activeCase?.playerCase.initial_top1.label
@@ -109,9 +112,10 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
   const startingParameters = initialParameters(selectedCase.playerCase.parameter_rules)
   const startingParametersSelected = attemptKey(currentParameters) === attemptKey(startingParameters)
   const cannotPredict = duplicateParameters || startingParametersSelected
+  const pixelPreviewReady = selectedMethod === 'Pixel' && pixelStrengthSelected && !cannotPredict && previewUrl !== null && !isPreviewing
 
   useEffect(() => {
-    if (phase !== 'manipulate' || !methodChosen) return
+    if (phase !== 'manipulate' || !methodChosen || (selectedMethod === 'Pixel' && (!pixelStrengthSelected || cannotPredict))) return
     let cancelled = false
     const timer = window.setTimeout(async () => {
       setIsPreviewing(true)
@@ -128,7 +132,7 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
       }
     }, 180)
     return () => { cancelled = true; window.clearTimeout(timer) }
-  }, [currentParameters, methodChosen, phase, selectedCase.stageRun.id, selectedMethod])
+  }, [cannotPredict, currentParameters, methodChosen, phase, pixelStrengthSelected, selectedCase.stageRun.id, selectedMethod])
 
   function updateParameter(method: Method, name: string, value: number) {
     setParametersByMethod((current) => ({ ...current, [method]: { ...current[method], [name]: value } }))
@@ -145,10 +149,49 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
     setSelectedMethod(method); setPrediction(''); setCurrentAttempt(null); setPhase('predict')
   }
 
+  function selectPixelStrength(value: number) {
+    setPixelStrengthSelected(true)
+    setPixelSelectionError(null)
+    setPreviewUrl(null)
+    updateParameter('Pixel', 'epsilon_pixels', value)
+  }
+
+  function beginPixelPrediction() {
+    if (!pixelStrengthSelected || startingParametersSelected) {
+      setPixelSelectionError('Choose a new Pixel Strength before continuing.')
+      return
+    }
+    if (duplicateParameters) {
+      setPixelSelectionError('Choose an untested Pixel Strength before continuing.')
+      return
+    }
+    if (!pixelPreviewReady) return
+    beginPrediction('Pixel')
+  }
+
+  function resetMethodManipulation(method: Method) {
+    const activeCase = cases.find((item) => methodFor(item) === method)
+    if (activeCase) {
+      setParametersByMethod((current) => ({
+        ...current,
+        [method]: initialParameters(activeCase.playerCase.parameter_rules),
+      }))
+    }
+    setPreviewUrl(null)
+    setPixelStrengthSelected(false)
+    setPixelSelectionError(null)
+  }
+
   function chooseMethod(method: Method) {
     setSelectedMethod(method)
     setMethodChosen(false)
-    setPreviewUrl(null)
+    resetMethodManipulation(method)
+  }
+
+  function beginMethodInvestigation() {
+    resetMethodManipulation(selectedMethod)
+    setMethodChosen(true)
+    setPhase('manipulate')
   }
 
   async function reclassify() {
@@ -168,8 +211,21 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
   }
 
   function continueAfterResult() {
+    if (selectedMethod === 'Pixel') {
+      setPhase('compare')
+      return
+    }
     setPrediction(''); setCurrentAttempt(null)
     setPhase(methodReady(selectedMethod) ? 'compare' : 'manipulate')
+  }
+
+  function continueAfterComparison() {
+    if (selectedMethod === 'Pixel' && !methodReady('Pixel')) {
+      setPrediction(''); setCurrentAttempt(null); setPreviewUrl(null); setPixelStrengthSelected(false); setPixelSelectionError(null); setPhase('manipulate')
+      return
+    }
+    setPrediction(''); setCurrentAttempt(null); setMethodChosen(false)
+    setPhase(allReady ? 'reflection' : 'observe')
   }
 
   async function finishStage() {
@@ -186,22 +242,86 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
     } finally { setIsSubmitting(false) }
   }
 
+  function renderPixelManipulate() {
+    const selectedStrength = currentParameters.epsilon_pixels ?? pixelStartingStrength
+    return <PixelManipulateLayout>
+      <PixelConceptNote />
+
+      <section className="stage-two-pixel-module" aria-labelledby="stage-two-pixel-whole-images-title">
+        <div className="stage-two-pixel-module__heading"><span>1</span><div><h3 id="stage-two-pixel-whole-images-title">Before · Observe Image | Preview · Selected Strength</h3><p>Choose a new Strength to generate a modified preview. The Observe image remains fixed.</p></div></div>
+        <div className="stage-two-pixel-whole-images">
+          <FixedPixelRegionImage title="Before · Observe image" imageUrl={resolveApiUrl(selectedCase.playerCase.initial_image_url)} alt="Fixed Pixel Observe image with selected 32 by 32 region" details={`Current / starting Strength: ${pixelStartingStrength}/255`} />
+          {pixelPreviewReady ? <FixedPixelRegionImage title="Preview · Selected Strength" imageUrl={previewUrl!} alt="Current Pixel Strength preview with selected 32 by 32 region" details={`Selected Strength: ${selectedStrength}/255 · preview only`} /> : <figure className="image-preview-card stage-two-pixel-preview-placeholder"><div className="card-heading"><strong>Preview · Selected Strength</strong></div><div role="status"><strong>{isPreviewing ? 'Generating the modified preview…' : 'Choose a Pixel Strength to preview the modified image.'}</strong></div></figure>}
+        </div>
+      </section>
+
+      <section className="stage-two-pixel-module" aria-labelledby="stage-two-pixel-strength-title">
+        <div className="stage-two-pixel-module__heading"><span>2</span><div><h3 id="stage-two-pixel-strength-title">Select a Pixel Strength</h3><p>Current / starting Strength: <strong>{pixelStartingStrength}/255</strong>. Select a new value for this attempt.</p></div></div>
+        <div className="pixel-strength-control stage-two-pixel-strength-selector">
+          <input aria-label="Pixel strength" id="pixel-strength" type="range" min="0" max={Math.max(0, pixelStrengthValues.length - 1)} step="1" value={Math.max(0, pixelStrengthValues.indexOf(selectedStrength))} onChange={(event) => selectPixelStrength(pixelStrengthValues[Number(event.target.value)])} />
+          <div className="pixel-strength-ticks" aria-label="Available Pixel strengths" style={{ gridTemplateColumns: `repeat(${pixelStrengthValues.length}, minmax(48px, 1fr))` }}>{pixelStrengthValues.map((value) => { const starting = value === pixelStartingStrength; const tested = attemptedPixelStrengths.has(value); return <span key={value} className={pixelStrengthSelected && selectedStrength === value ? 'is-selected' : ''}><strong>{value}/255</strong>{starting ? <small>Initial value</small> : tested ? <small>Previously selected</small> : null}</span> })}</div>
+          {pixelStrengthSelected ? <p className="selected-strength-status" role="status">Selected for preview: <strong>{selectedStrength}/255</strong></p> : <p className="selected-strength-status" role="status">No new Strength selected yet.</p>}
+        </div>
+      </section>
+
+      <section className="stage-two-pixel-module" aria-labelledby="stage-two-pixel-strength-help-title">
+        <div className="stage-two-pixel-module__heading"><span>3</span><div><h3 id="stage-two-pixel-strength-help-title">Understand the setting</h3></div></div>
+        <PixelStrengthHelp />
+        <p className="stage-two-tutorial-goal"><strong>Tutorial goal</strong><span>Try different settings until you observe one correct and one incorrect classification.</span></p>
+      </section>
+
+      <section className="stage-two-pixel-module" aria-labelledby="stage-two-pixel-region-title">
+        <div className="stage-two-pixel-module__heading"><span>4</span><div><h3 id="stage-two-pixel-region-title">32×32 Selected Region</h3></div></div>
+        <PixelInspector mode="preview" originalUrl={resolveApiUrl(selectedCase.playerCase.initial_image_url)} modifiedUrl={previewUrl ?? resolveApiUrl(selectedCase.playerCase.initial_image_url)} subject={selectedCase.playerCase.subject} observedStrength={pixelStartingStrength} strength={selectedStrength} previewReady={pixelPreviewReady} beforeLabelOverride="Observe" afterLabelOverride="Preview" />
+      </section>
+
+      {pixelPreviewReady ? <section className="stage-two-pixel-action-prompt" aria-label="Next Pixel investigation action"><strong>The changes may still be difficult to see.</strong><p>You have chosen a Pixel Strength and previewed the modified image. <strong>Next, predict whether the change will affect the AI’s prediction, then reclassify the image to test your prediction.</strong></p></section> : null}
+      {pixelSelectionError ? <p className="parameter-warning" role="alert">{pixelSelectionError}</p> : null}
+    </PixelManipulateLayout>
+  }
+
+  function renderPixelComparison(activeCase: ActiveStage) {
+    if (!currentAttempt || currentAttempt.method !== 'Pixel') return null
+    const attempt = currentAttempt
+    const matched = predictionResult(attempt)
+    const firstPixelComparison = caseAttempts('Pixel').length === 1
+    return <section className="method-comparison stage-two-pixel-lesson">
+      <h3>Pixel evidence</h3>
+      {firstPixelComparison ? <section className="pixel-teaching-sequence" aria-label="Pixel inspection sequence">
+        <strong>Follow the evidence from the whole image to its RGB values</strong>
+        <p>Start with the whole images. If the change is difficult to notice, inspect the same 32×32 region, then the same 8×8 pixels and their real RGB values. Enhanced Difference magnifies the small RGB differences at the end.</p>
+        <p><strong>Whole image → 32×32 region → 8×8 region → RGB values / chart → Enhanced Difference</strong></p>
+      </section> : <p className="pixel-repeat-comparison-note">Use the same Pixel Inspector to examine this new Strength result. The fixed Observe image remains the Before state.</p>}
+      <article className="stage-two-pixel-attempt">
+          <h4>Attempt {attempt.action.attempt_number} · Strength {attempt.parameters.epsilon_pixels}/255</h4>
+          <div className="comparison-evidence">
+            <div><ImagePreviewCard title="Before · fixed Observe image" imageUrl={resolveApiUrl(activeCase.playerCase.initial_image_url)} alt="Fixed Pixel Observe image" /><ClassificationResultCard title="Before classification" prediction={activeCase.playerCase.initial_top1} correctLabel={activeCase.playerCase.correct_label} /></div>
+            <div><ImagePreviewCard title="After · tested Strength" imageUrl={resolveApiUrl(attempt.action.image_url)} alt={`Pixel attempt ${attempt.action.attempt_number} result`} /><ClassificationResultCard title="After classification" prediction={attempt.action.top1} correctLabel={activeCase.playerCase.correct_label} /></div>
+          </div>
+          <PixelCompareLayout mode="two-state" teaching beforeImageUrl={resolveApiUrl(activeCase.playerCase.initial_image_url)} afterImageUrl={resolveApiUrl(attempt.action.image_url)} subject={activeCase.playerCase.subject} beforeStrength={pixelStartingStrength} afterStrength={attempt.parameters.epsilon_pixels ?? 0} beforeLabel="Observe" afterLabel="Tested Strength" allowRegionSelection={false} showEnhancedDifference />
+          <PixelReclassifyConnection context="after" />
+          <p className="attempt-prediction">Prediction: {attempt.prediction.replaceAll('_', ' ')}</p>
+          <div className="attempt-result-badges"><StatusBadge tone={matched === 'Matched' ? 'success' : matched === 'Not scored' ? 'neutral' : 'warning'}>Prediction · {matched}</StatusBadge></div>
+      </article>
+    </section>
+  }
+
   return <div className="stage-two-flow">
     <StepProgress steps={STEPS} currentIndex={PHASE_INDEX[phase]} />
-    <SimulationNotice>Stage 2 generates the selected parameters and reclassifies the resulting image with ResNet-34.</SimulationNotice>
+    <SimulationNotice>Stage 2 lets you select parameters and reclassify the modified image.</SimulationNotice>
     {phase === 'observe' ? <>
       <PanelTitle label="Observe" title="Choose one variable to investigate" description="Patch and Pixel both begin with an attacked image that is still classified correctly. Complete one, then choose the other." />
       <div className="variable-tabs" role="tablist" aria-label="Stage 2 variables">{cases.map((activeCase) => { const method = methodFor(activeCase); return <button type="button" role="tab" aria-selected={selectedMethod === method} className={selectedMethod === method ? 'is-selected' : ''} key={activeCase.playerCase.case_id} onClick={() => chooseMethod(method)}><strong>{method}</strong><small>{method === 'Patch' ? 'Size and position' : 'Attack strength'}</small>{methodReady(method) ? <StatusBadge tone="success">Complete</StatusBadge> : null}</button> })}</div>
       <div className="evidence-grid"><ImagePreviewCard title={`${selectedMethod} starting image`} imageUrl={resolveApiUrl(selectedCase.playerCase.initial_image_url)} alt={`${selectedMethod}-attacked ${selectedCase.playerCase.subject}`} details={<><span>True class: <strong>{selectedCase.playerCase.correct_label}</strong></span><StatusBadge tone="success">Attacked · still correct</StatusBadge></>} /><div className="starting-evidence-column"><ClassificationResultCard title="Starting classification" prediction={selectedCase.playerCase.initial_top1} correctLabel={selectedCase.playerCase.correct_label} /><section className="starting-parameters"><strong>Current attack parameters</strong><span>{parameterSummary(initialParameters(selectedCase.playerCase.parameter_rules))}</span></section></div></div>
-      <div className="stage-navigation stage-navigation--end">{methodReady(selectedMethod) ? <p className="completed-variable-notice"><strong>{selectedMethod} investigation complete.</strong> You have observed one correct and one incorrect classification. Choose the other attack above.</p> : <button className="primary-button" type="button" onClick={() => { setMethodChosen(true); setPhase('manipulate') }}>{`Continue with ${selectedMethod}`}</button>}</div>
+      <div className="stage-navigation stage-navigation--end">{methodReady(selectedMethod) ? <p className="completed-variable-notice"><strong>{selectedMethod} investigation complete.</strong> You have observed one correct and one incorrect classification. Choose the other attack above.</p> : <button className="primary-button" type="button" onClick={beginMethodInvestigation}>{`Continue with ${selectedMethod}`}</button>}</div>
     </> : null}
 
     {phase === 'manipulate' ? <>
-      <PanelTitle label="Manipulate" title={`Adjust the ${selectedMethod} variable`} description="Choose a setting, then predict before asking the classifier for the result." />
-      {methodChosen ? <section className="single-parameter-experiment"><div className={`experiment-preview ${isPreviewing ? 'is-loading' : ''}`}>{selectedMethod === 'Pixel' ? <PixelInspector mode="comparison" originalUrl={resolveApiUrl(selectedCase.playerCase.initial_image_url)} modifiedUrl={previewUrl ?? resolveApiUrl(selectedCase.playerCase.initial_image_url)} subject="strawberry" observedStrength={pixelStartingStrength} strength={currentParameters.epsilon_pixels ?? 0} /> : <ImagePreviewCard title={isPreviewing ? 'Updating Patch preview…' : 'Live Patch preview'} imageUrl={previewUrl ?? resolveApiUrl(latestAttempt('Patch')?.action.image_url ?? selectedCase.playerCase.initial_image_url)} alt="Patch-attacked strawberry preview" />}</div><div className="experiment-controls"><div className="card-heading"><strong>{selectedMethod} settings</strong><StatusBadge tone={methodReady(selectedMethod) ? 'success' : 'neutral'}>{methodReady(selectedMethod) ? 'Contrast complete' : `${caseAttempts(selectedMethod).length} tested`}</StatusBadge></div>
-        {selectedMethod === 'Patch' ? <div className="patch-choice-controls"><fieldset><legend>Patch position</legend><p className="control-description">Choose any position and combine it with any available size.</p><div className="patch-position-grid">{PATCH_POSITIONS.map((position) => { const selected = currentParameters.position_x === position.x && currentParameters.position_y === position.y; const starting = position.x === startingParameters.position_x && position.y === startingParameters.position_y; return <button key={position.label} type="button" aria-label={`${position.label} position: position_x=${position.x.toFixed(1)}, position_y=${position.y.toFixed(1)}${starting ? ', starting position' : ''}`} aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => updatePatchPosition(position.x, position.y)}><span className="patch-position-icon" style={{ '--patch-left': position.left, '--patch-top': position.top } as CSSProperties}><i /></span><span className="patch-position-label"><strong>{position.label}</strong><small>position_x={position.x.toFixed(1)}</small><small>position_y={position.y.toFixed(1)}</small>{starting ? <em>Starting position</em> : null}</span></button> })}</div></fieldset><fieldset><legend>Patch size</legend><p className="control-description">The starting size remains visible so you can combine it with another position.</p><div className="patch-option-row">{nonZeroValues(selectedCase.playerCase.parameter_rules.find((rule) => rule.parameter === 'size_fraction')?.allowed_values).map((value) => { const starting = value === startingParameters.size_fraction; return <button key={value} type="button" aria-label={`${parameterLabel('size_fraction', value)}${starting ? ', starting size' : ''}`} aria-pressed={currentParameters.size_fraction === value} className={currentParameters.size_fraction === value ? 'is-selected' : ''} onClick={() => updateParameter('Patch', 'size_fraction', value)}><span className="patch-option-icon" style={{ '--patch-size': `${9 + value * 55}px` } as CSSProperties}><i /></span><small>{parameterLabel('size_fraction', value)}</small>{starting ? <em>Starting size</em> : null}</button> })}</div></fieldset></div> : <div className="pixel-strength-control"><PixelLearningNote includeStrength /><input aria-label="Pixel strength" id="pixel-strength" type="range" min="0" max={Math.max(0, pixelStrengthValues.length - 1)} step="1" value={Math.max(0, pixelStrengthValues.indexOf(currentParameters.epsilon_pixels))} onChange={(event) => { const requested = pixelStrengthValues[Number(event.target.value)]; if (requested !== pixelStartingStrength && !attemptedPixelStrengths.has(requested)) updateParameter('Pixel', 'epsilon_pixels', requested) }} /><div className="pixel-strength-ticks" aria-label="Available Pixel strengths">{pixelStrengthValues.map((value) => { const locked = value === pixelStartingStrength || attemptedPixelStrengths.has(value); return <span key={value} className={`${currentParameters.epsilon_pixels === value ? 'is-selected' : ''} ${locked ? 'is-locked' : ''}`.trim()}><strong>{value}/255</strong>{locked ? <small>{value === pixelStartingStrength ? 'Starting value' : 'Tested · locked'}</small> : null}</span> })}</div><p className="control-description">Choose and test two other non-zero strengths. Previously classified strengths are locked. Use Pixel Inspector on the left to compare the Observe image with the current preview.</p></div>}
+      <PanelTitle label="Manipulate" title={`Adjust the ${selectedMethod} variable`} description={selectedMethod === 'Pixel' ? 'Understand the Pixel modification, actively select a new Strength, inspect its preview, then predict before testing it.' : 'Choose a setting, then predict before asking the classifier for the result.'} />
+      {methodChosen ? selectedMethod === 'Pixel' ? renderPixelManipulate() : <section className="single-parameter-experiment"><div className={`experiment-preview ${isPreviewing ? 'is-loading' : ''}`}><ImagePreviewCard title={isPreviewing ? 'Updating Patch preview…' : 'Live Patch preview'} imageUrl={previewUrl ?? resolveApiUrl(selectedCase.playerCase.initial_image_url)} alt={`Patch-attacked ${selectedCase.playerCase.subject} preview`} /></div><div className="experiment-controls"><div className="card-heading"><strong>{selectedMethod} settings</strong><StatusBadge tone={methodReady(selectedMethod) ? 'success' : 'neutral'}>{methodReady(selectedMethod) ? 'Contrast complete' : `${caseAttempts(selectedMethod).length} tested`}</StatusBadge></div>
+        {selectedMethod === 'Patch' ? <div className="patch-choice-controls"><fieldset><legend>Patch position</legend><p className="control-description">Choose any position and combine it with any available size.</p><div className="patch-position-grid">{PATCH_POSITIONS.map((position) => { const selected = currentParameters.position_x === position.x && currentParameters.position_y === position.y; const starting = position.x === startingParameters.position_x && position.y === startingParameters.position_y; return <button key={position.label} type="button" aria-label={`${position.label} position: position_x=${position.x.toFixed(1)}, position_y=${position.y.toFixed(1)}${starting ? ', starting position' : ''}`} aria-pressed={selected} className={selected ? 'is-selected' : ''} onClick={() => updatePatchPosition(position.x, position.y)}><span className="patch-position-icon" style={{ '--patch-left': position.left, '--patch-top': position.top } as CSSProperties}><i /></span><span className="patch-position-label"><strong>{position.label}</strong><small>position_x={position.x.toFixed(1)}</small><small>position_y={position.y.toFixed(1)}</small>{starting ? <em>Starting position</em> : null}</span></button> })}</div></fieldset><fieldset><legend>Patch size</legend><p className="control-description">The starting size remains visible so you can combine it with another position.</p><div className="patch-option-row">{nonZeroValues(selectedCase.playerCase.parameter_rules.find((rule) => rule.parameter === 'size_fraction')?.allowed_values).map((value) => { const starting = value === startingParameters.size_fraction; return <button key={value} type="button" aria-label={`${parameterLabel('size_fraction', value)}${starting ? ', starting size' : ''}`} aria-pressed={currentParameters.size_fraction === value} className={currentParameters.size_fraction === value ? 'is-selected' : ''} onClick={() => updateParameter('Patch', 'size_fraction', value)}><span className="patch-option-icon" style={{ '--patch-size': `${9 + value * 55}px` } as CSSProperties}><i /></span><small>{parameterLabel('size_fraction', value)}</small>{starting ? <em>Starting size</em> : null}</button> })}</div></fieldset></div> : <div className="pixel-strength-control"><PixelConceptNote /><PixelStrengthHelp /><input aria-label="Pixel strength" id="pixel-strength" type="range" min="0" max={Math.max(0, pixelStrengthValues.length - 1)} step="1" value={Math.max(0, pixelStrengthValues.indexOf(currentParameters.epsilon_pixels))} onChange={(event) => { const requested = pixelStrengthValues[Number(event.target.value)]; if (requested !== pixelStartingStrength && !attemptedPixelStrengths.has(requested)) updateParameter('Pixel', 'epsilon_pixels', requested) }} /><div className="pixel-strength-ticks" aria-label="Available Pixel strengths" style={{ gridTemplateColumns: `repeat(${pixelStrengthValues.length}, minmax(48px, 1fr))` }}>{pixelStrengthValues.map((value) => { const locked = value === pixelStartingStrength || attemptedPixelStrengths.has(value); return <span key={value} className={`${currentParameters.epsilon_pixels === value ? 'is-selected' : ''} ${locked ? 'is-locked' : ''}`.trim()}><strong>{value}/255</strong>{locked ? <small>{value === pixelStartingStrength ? 'Starting value' : 'Tested · locked'}</small> : null}</span> })}</div><p className="control-description">Choose an untested Strength. Pixel-level changes may be difficult to notice at normal image size, so compare the selected 32×32 crops on the left. The preview does not reveal the classifier result.</p></div>}
         <p className="tool-hint"><Move size={15} /> Try different settings until you observe one correct and one incorrect classification.</p>{startingParametersSelected ? <p className="parameter-warning">This is the starting image parameter combination. Change the position, size, or strength before testing.</p> : null}{selectedMethod === 'Patch' ? <button className="primary-button tool-action" type="button" disabled={cannotPredict} onClick={() => beginPrediction(selectedMethod)}>{duplicateParameters ? 'Already tested' : startingParametersSelected ? 'Choose a different setting' : `Predict ${selectedMethod} result`}</button> : null}</div></section> : null}
-      <div className="stage-navigation"><button className="secondary-button" type="button" onClick={() => { setMethodChosen(false); setPhase('observe') }}>Back to variable choice</button>{selectedMethod === 'Pixel' ? <button className="primary-button" type="button" disabled={cannotPredict} onClick={() => beginPrediction(selectedMethod)}>{duplicateParameters ? 'Already tested' : startingParametersSelected ? 'Choose a different setting' : 'Continue to Predict'}</button> : null}</div>
+      <div className="stage-navigation"><button className="secondary-button" type="button" onClick={() => { setMethodChosen(false); setPhase('observe') }}>Back to variable choice</button>{selectedMethod === 'Pixel' ? <button className="primary-button" type="button" disabled={!pixelStrengthSelected || (pixelStrengthSelected && !cannotPredict && !pixelPreviewReady)} onClick={beginPixelPrediction}>{!pixelStrengthSelected ? 'Select a Strength first' : isPreviewing ? 'Generating Preview…' : 'Continue to Predict'}</button> : null}</div>
     </> : null}
 
     {phase === 'predict' ? <>
@@ -212,16 +332,17 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
 
     {phase === 'reclassify' ? <>
       <PanelTitle label="Reclassify" title={currentAttempt ? 'New classification result' : 'Run the selected parameter experiment'} description={currentAttempt ? 'Review this result before returning to the tools or continuing to Compare.' : 'The server will generate this parameter state and classify it with ResNet-34.'} />
-      <div className="reclassify-action-layout"><div><ImagePreviewCard title="Before reclassification" imageUrl={resolveApiUrl(currentAttempt?.action.image_url ?? previewUrl ?? selectedCase.playerCase.initial_image_url)} alt={`${selectedMethod} modified strawberry ready for reclassification`} details={<span>{parameterSummary(currentParameters)}</span>} /></div><div className="reclassify-center-action"><span>Send modified image to classifier</span><button className="primary-button" type="button" disabled={isSubmitting || currentAttempt !== null} onClick={() => void reclassify()}>{isSubmitting ? 'Reclassifying…' : currentAttempt ? 'Reclassified' : 'Reclassify image'}</button></div><ClassificationResultCard title="After reclassification" prediction={currentAttempt?.action.top1} correctLabel={selectedCase.playerCase.correct_label} reveal={currentAttempt !== null} /></div>
+      {selectedMethod === 'Pixel' ? <PixelReclassifyConnection /> : null}
+      <div className="reclassify-action-layout"><div><ImagePreviewCard title="Before reclassification" imageUrl={resolveApiUrl(currentAttempt?.action.image_url ?? previewUrl ?? selectedCase.playerCase.initial_image_url)} alt={`${selectedMethod} modified ${selectedCase.playerCase.subject} ready for reclassification`} details={<span>{parameterSummary(currentParameters)}</span>} /></div><div className="reclassify-center-action"><span>Send modified image to classifier</span><button className="primary-button" type="button" disabled={isSubmitting || currentAttempt !== null} onClick={() => void reclassify()}>{isSubmitting ? 'Reclassifying…' : currentAttempt ? 'Reclassified' : 'Reclassify image'}</button></div><ClassificationResultCard title="After reclassification" prediction={currentAttempt?.action.top1} correctLabel={selectedCase.playerCase.correct_label} reveal={currentAttempt !== null} /></div>
       {currentAttempt && !methodReady(selectedMethod) ? <p className="exploration-hint">{currentAttempt.action.correct_label_is_top1 ? 'This setting still produced the correct classification. Try another parameter combination—another result may be possible.' : 'This setting produced an incorrect classification. Try another parameter combination to see whether the correct result can be preserved.'}</p> : null}
       {reclassifyPrompt ? <p className="reclassify-required-notice" role="status">{reclassifyPrompt}</p> : null}
-      <div className="stage-navigation"><button className="secondary-button" type="button" onClick={() => currentAttempt ? setReclassifyPrompt('This result has already been recorded. Continue with the result before changing your prediction.') : setPhase('predict')}>Back to Predict</button><button className="primary-button" type="button" onClick={() => currentAttempt ? continueAfterResult() : setReclassifyPrompt('Reclassify the image first before continuing to another parameter or Compare.')}>{currentAttempt && methodReady(selectedMethod) ? `Compare ${selectedMethod} results` : 'Continue exploring parameters'}</button></div>
+      <div className="stage-navigation"><button className="secondary-button" type="button" onClick={() => currentAttempt ? setReclassifyPrompt('This result has already been recorded. Continue with the result before changing your prediction.') : setPhase('predict')}>Back to Predict</button><button className="primary-button" type="button" onClick={() => currentAttempt ? continueAfterResult() : setReclassifyPrompt('Reclassify the image first before continuing to another parameter or Compare.')}>{currentAttempt && selectedMethod === 'Pixel' ? 'Continue to Compare' : currentAttempt && methodReady(selectedMethod) ? `Compare ${selectedMethod} results` : 'Continue exploring parameters'}</button></div>
     </> : null}
 
     {phase === 'compare' ? <>
-      <PanelTitle label="Compare" title={`Compare the ${selectedMethod} parameter results`} description="Compare the starting attacked image with the correct and incorrect results you produced." />
-      {[selectedCase].map((activeCase) => { const method = methodFor(activeCase); return <section className="method-comparison" key={method}><h3>{method} evidence</h3><div className="comparison-card-grid"><div><ImagePreviewCard title="Starting attacked image" imageUrl={resolveApiUrl(activeCase.playerCase.initial_image_url)} alt={`${method} starting condition`} details={<span>{parameterSummary(initialParameters(activeCase.playerCase.parameter_rules))}</span>} /><ClassificationResultCard title="Starting result" prediction={activeCase.playerCase.initial_top1} correctLabel={activeCase.playerCase.correct_label} /></div>{caseAttempts(method).map((attempt) => { const matched = predictionResult(attempt); return <div key={`${method}-${attempt.action.attempt_number}`}><ImagePreviewCard title={`Attempt ${attempt.action.attempt_number} modified image`} imageUrl={resolveApiUrl(attempt.action.image_url)} alt={`${method} modified attempt ${attempt.action.attempt_number}`} details={<span>Attempt {attempt.action.attempt_number} · {parameterSummary(attempt.parameters)}</span>} /><ClassificationResultCard title={`Attempt ${attempt.action.attempt_number} result`} prediction={attempt.action.top1} correctLabel={activeCase.playerCase.correct_label} /><p className="attempt-prediction">Prediction: {attempt.prediction.replaceAll('_', ' ')}</p><div className="attempt-result-badges"><StatusBadge tone={matched === 'Matched' ? 'success' : matched === 'Not scored' ? 'neutral' : 'warning'}>Prediction · {matched}</StatusBadge></div></div> })}</div></section> })}
-      <div className="stage-navigation stage-navigation--end"><button className="primary-button" type="button" onClick={() => { if (allReady) setPhase('reflection'); else { setMethodChosen(false); setPhase('observe') } }}>{allReady ? 'Continue to Reflection' : 'Choose another attack'}</button></div>
+      <PanelTitle label="Compare" title={`Compare the ${selectedMethod} parameter results`} description={selectedMethod === 'Pixel' ? 'Compare the fixed Observe image with this attempt’s image, RGB evidence and classification result.' : 'Compare the starting attacked image with the correct and incorrect results you produced.'} />
+      {selectedMethod === 'Pixel' ? renderPixelComparison(selectedCase) : <section className="method-comparison"><h3>Patch evidence</h3><div className="comparison-card-grid"><div><ImagePreviewCard title="Starting attacked image" imageUrl={resolveApiUrl(selectedCase.playerCase.initial_image_url)} alt="Patch starting condition" details={<span>{parameterSummary(initialParameters(selectedCase.playerCase.parameter_rules))}</span>} /><ClassificationResultCard title="Starting result" prediction={selectedCase.playerCase.initial_top1} correctLabel={selectedCase.playerCase.correct_label} /></div>{caseAttempts('Patch').map((attempt) => { const matched = predictionResult(attempt); return <div key={`Patch-${attempt.action.attempt_number}`}><ImagePreviewCard title={`Attempt ${attempt.action.attempt_number} modified image`} imageUrl={resolveApiUrl(attempt.action.image_url)} alt={`Patch modified attempt ${attempt.action.attempt_number}`} details={<span>Attempt {attempt.action.attempt_number} · {parameterSummary(attempt.parameters)}</span>} /><ClassificationResultCard title={`Attempt ${attempt.action.attempt_number} result`} prediction={attempt.action.top1} correctLabel={selectedCase.playerCase.correct_label} /><p className="attempt-prediction">Prediction: {attempt.prediction.replaceAll('_', ' ')}</p><div className="attempt-result-badges"><StatusBadge tone={matched === 'Matched' ? 'success' : matched === 'Not scored' ? 'neutral' : 'warning'}>Prediction · {matched}</StatusBadge></div></div> })}</div></section>}
+      <div className="stage-navigation stage-navigation--end"><button className="primary-button" type="button" onClick={continueAfterComparison}>{selectedMethod === 'Pixel' && !methodReady('Pixel') ? 'Test another Pixel Strength' : allReady ? 'Continue to Reflection' : 'Choose another attack'}</button></div>
     </> : null}
 
     {phase === 'reflection' ? <>
@@ -229,7 +350,7 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
       <div className="stage-summary"><h3>Stage 2 evidence table</h3><div className="stage-two-summary" role="table" aria-label="Stage 2 comparison results"><div className="stage-two-summary-row stage-two-summary-head" role="row"><span>Method</span><span>Parameters</span><span>Your prediction</span><span>AI's main judgement</span><span>Changed from start?</span></div>{attempts.map((attempt) => <div className="stage-two-summary-row" role="row" key={`reflection-${attempt.method}-${attempt.action.attempt_number}`}><span>{attempt.method}</span><span>{parameterSummary(attempt.parameters)}</span><span>{attempt.prediction.replaceAll('_', ' ')}</span><span>{attempt.action.top1.label}</span><span>{changedFromStartingResult(attempt) ? 'Changed' : 'Unchanged'}</span></div>)}</div></div>
       <fieldset className="choice-group"><legend>Which statement best matches the evidence?</legend>{[['method_only', 'The attack method alone determines the result.'], ['parameters_matter', 'Parameter conditions can affect whether the classification changes.'], ['always_larger', 'A larger parameter always produces the same result.'], ['random', 'The classifier result is random.']].map(([value, label]) => <label key={value}><input type="radio" name="stage2-reflection" checked={reflectionChoice === value} onChange={() => setReflectionChoice(value)} />{label}</label>)}</fieldset>
       {reflectionChoice ? <p className={`prediction-feedback ${reflectionChoice === 'parameters_matter' ? 'prediction-feedback--match' : ''}`}>{reflectionChoice === 'parameters_matter' ? 'Correct. The comparison shows that parameter conditions matter.' : 'Review the comparison: different settings within each method produced different outcomes.'}</p> : null}
-      <div className="stage-navigation stage-navigation--end"><button className="primary-button" type="button" disabled={!reflectionChoice || isSubmitting} onClick={() => void finishStage()}>{isSubmitting ? 'Saving…' : 'Complete Stage 2'}</button></div>
+      <div className="stage-navigation stage-navigation--end"><button className="primary-button" type="button" disabled={!reflectionChoice || isSubmitting} onClick={() => void finishStage()}>{isSubmitting ? 'Saving…' : 'Complete the Condition Training Stage'}</button></div>
     </> : null}
 
     {phase === 'summary' ? <div className="standalone-summary"><Sparkles size={30} /><p className="step-label">Condition Training summary</p><h2>Evidence from your tested variables</h2><p>Across your attempts, different settings for Patch size and Pixel intensity were associated with different classification outcomes. This suggests that a modification does not have one fixed effect: whether it changes the classification may depend on the specific parameters used. You can apply this way of thinking to other images, but the exact outcome should still be checked in each case.</p><button className="primary-button" type="button" disabled={!completedCases} onClick={() => { if (completedCases) { onStageComplete(completedCases); setPhase('complete') } }}>Continue</button></div> : null}

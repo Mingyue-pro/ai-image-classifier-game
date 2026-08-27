@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
@@ -22,7 +22,7 @@ function repairCase(attackType: 'patch' | 'fgsm'): ActiveStage {
       { parameter: 'position_y', allowed_values: [0.4, 0.5], initial_value: 0.5, fallback_value: 0.5 },
       { parameter: 'size_fraction', allowed_values: [0.1, 0.35], initial_value: 0.35, fallback_value: 0.1 },
     ] : [
-      { parameter: 'epsilon_pixels', allowed_values: [0, 0.25, 1, 4], initial_value: 4, fallback_value: 0.25 },
+      { parameter: 'epsilon_pixels', allowed_values: [0.5, 1, 2, 4], initial_value: 4, fallback_value: 0.5 },
     ],
     max_attempts: 3,
     available_states: [],
@@ -89,6 +89,7 @@ describe('RepairInvestigationFlow', () => {
     await user.click(continueButton)
 
     expect(screen.getByText('Patch repair settings')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Previous Patch attempts and results' })).toHaveTextContent('No previous Patch attempts yet.')
     expect(screen.getByText('3 attempts left')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Adjust the Patch size', level: 2 })).toBeInTheDocument()
     expect(screen.queryByRole('slider', { name: 'Horizontal position' })).not.toBeInTheDocument()
@@ -127,5 +128,46 @@ describe('RepairInvestigationFlow', () => {
     expect(screen.getByRole('slider', { name: /Vertical position/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '10%' })).not.toBeInTheDocument()
     expect(screen.getByText(/Current Patch size: 35%/)).toBeInTheDocument()
+  })
+
+  test('uses a fixed-baseline Pixel preview with compact help and previous evidence', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ image_url: '/preview.png', parameters: { epsilon_pixels: 2 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    render(<RepairInvestigationFlow cases={[repairCase('patch'), repairCase('fgsm')]} nextError={null} onStageComplete={vi.fn()} onContinue={vi.fn()} isMovingNext={false} />)
+
+    await user.click(screen.getByRole('tab', { name: /Pixel/ }))
+    await user.click(screen.getByRole('button', { name: 'Predict a repair direction' }))
+    await user.click(screen.getByRole('radio', { name: 'Adjust the Pixel strength' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
+
+    expect(screen.queryByLabelText('About Pixel modification')).not.toBeInTheDocument()
+    expect(screen.getByText('Before · Current Result | Preview · Selected Strength').closest('.pixel-manipulate-layout')).toBeInTheDocument()
+    expect(screen.getByText('What is Pixel Strength?').closest('details')).not.toHaveAttribute('open')
+    const strengthSlider = screen.getByRole('slider', { name: 'Pixel strength' })
+    expect(strengthSlider).toHaveValue('3')
+    const strengthControl = strengthSlider.closest('.pixel-strength-control')
+    expect(strengthControl?.querySelector('.pixel-strength-ticks')).toHaveStyle({ gridTemplateColumns: 'repeat(4, minmax(48px, 1fr))' })
+    expect(strengthControl).toHaveTextContent('0.5/255')
+    expect(strengthControl).toHaveTextContent('1/255')
+    expect(strengthControl).toHaveTextContent('2/255')
+    expect(strengthControl).toHaveTextContent('4/255')
+    expect(strengthControl).not.toHaveTextContent('0.25/255')
+    expect(strengthControl).not.toHaveTextContent('0.75/255')
+    expect(strengthControl).toHaveTextContent('Initial value')
+    expect(strengthControl).not.toHaveTextContent('Locked')
+    expect(strengthControl).not.toHaveTextContent('full range')
+    expect(screen.getByText('Find a setting that restores the correct classification.')).toBeInTheDocument()
+    expect(screen.getByText('Choose a new Pixel Strength to preview the modified image.')).toBeInTheDocument()
+    expect(screen.getByText(/Strengths are not added to previous attempts/)).toBeInTheDocument()
+    expect(screen.getByText('Previous attempts / results')).toBeInTheDocument()
+    expect(screen.getByText('No previous Pixel attempts yet.')).toBeInTheDocument()
+    expect(screen.getByText('Use the evidence from your previous attempts to decide what to try next.')).toBeInTheDocument()
+    expect(screen.getByText('32×32 selected region')).toBeInTheDocument()
+    fireEvent.change(strengthSlider, { target: { value: '0' } })
+    await waitFor(() => {
+      const previewCall = fetchMock.mock.calls.find(([url]) => url.toString().endsWith('/preview'))
+      expect(JSON.parse(String(previewCall?.[1]?.body))).toMatchObject({ parameters: { epsilon_pixels: 0.5 } })
+    })
   })
 })

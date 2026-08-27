@@ -1,18 +1,19 @@
-import { Lock, Unlock } from 'lucide-react'
-import { PixelLearningNote } from './PixelLearning'
+import { PixelLearningNote, PixelStrengthHelp } from './PixelLearning'
 
 type PixelStrengthControlProps = {
   values: number[]
   value: number
   currentValue?: number
+  initialValue?: number
   showExplanation?: boolean
+  learningMode?: 'full' | 'compact'
   baselineUnlocked: boolean
   onChange: (value: number) => void
 }
 
 const lockedStrengthsByOptions = new WeakMap<number[], Set<number>>()
 
-export function PixelStrengthControl({ values, value, currentValue, baselineUnlocked, onChange }: PixelStrengthControlProps) {
+export function PixelStrengthControl({ values, value, currentValue, initialValue, learningMode = 'full', baselineUnlocked, onChange }: PixelStrengthControlProps) {
   const selectedIndex = Math.max(0, values.indexOf(value))
   const lockedStrengths = lockedStrengthsByOptions.get(values) ?? new Set<number>()
   if (!lockedStrengthsByOptions.has(values)) lockedStrengthsByOptions.set(values, lockedStrengths)
@@ -20,22 +21,22 @@ export function PixelStrengthControl({ values, value, currentValue, baselineUnlo
 
   return <div className="pixel-strength-control">
     <div className="pixel-strength-heading"><strong>Adjust the Pixel strength</strong></div>
-    <PixelLearningNote includeStrength />
+    {learningMode === 'full' ? <PixelLearningNote includeStrength /> : <PixelStrengthHelp variant="compact" />}
     <input aria-label="Pixel strength" type="range" min="0" max={Math.max(0, values.length - 1)} step="1" value={selectedIndex} onChange={(event) => {
       const nextIndex = Number(event.target.value)
-      const requested = values[nextIndex === 0 && !baselineUnlocked ? Math.min(1, values.length - 1) : nextIndex]
+      const requested = values[nextIndex]
+      if (requested === 0 && !baselineUnlocked) return
       if (requested === 0 || !lockedStrengths.has(requested)) onChange(requested)
     }} />
-    <div className="pixel-strength-ticks" aria-hidden="true">
+    <div className="pixel-strength-ticks" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${values.length}, minmax(48px, 1fr))` }}>
       {values.map((option) => {
-        const locked = (option === 0 && !baselineUnlocked) || (option !== 0 && lockedStrengths.has(option))
-        return <span key={option} className={`${value === option ? 'is-selected' : ''} ${locked ? 'is-locked' : ''}`.trim()}>
+        const previouslySelected = option !== 0 && lockedStrengths.has(option)
+        return <span key={option} className={value === option ? 'is-selected' : ''}>
           <strong>{option}/255</strong>
-          {locked ? <small><Lock size={13} /> Locked</small> : option === 0 ? <small><Unlock size={13} /> Baseline</small> : null}
+          {option === initialValue ? <small>Initial value</small> : previouslySelected ? <small>Previously selected</small> : option === 0 ? <small>Remove</small> : null}
         </span>
       })}
     </div>
-    <p className="control-description">Previously classified strengths are locked so that the next attempt tests a different setting.</p>
-    <p className="control-description">{baselineUnlocked ? 'Baseline check unlocked: 0/255 removes the Pixel modification and returns to the original pixels.' : 'The full range is shown. First test a non-zero strength to unlock the 0/255 baseline check.'}</p>
+    <p className="control-description">Choose a value you have not previously tested in this repair investigation.</p>
   </div>
 }

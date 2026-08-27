@@ -118,7 +118,7 @@ describe('TransferChallengeFlow', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Adjust the Pixel strength' }))
     await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
-    expect(screen.getByText('Baseline check unlocked: 0/255 removes the Pixel modification and returns to the original pixels.')).toBeInTheDocument()
+    expect(screen.getByText('Choose a value you have not previously tested in this repair investigation.')).toBeInTheDocument()
     expect(screen.getByText('Change at least one repair parameter before reclassifying.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue to Reclassify' })).toBeDisabled()
     const pixelStrength = screen.getByRole('slider', { name: 'Pixel strength' })
@@ -129,7 +129,7 @@ describe('TransferChallengeFlow', () => {
     await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
     await user.click(await screen.findByRole('button', { name: 'Continue to Compare' }))
     await user.click(screen.getByRole('button', { name: 'Try another repair' }))
-    expect(await screen.findByText('Baseline check unlocked: 0/255 removes the Pixel modification and returns to the original pixels.')).toBeInTheDocument()
+    expect(await screen.findByText('Choose a value you have not previously tested in this repair investigation.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Continue to Reclassify' })).toBeDisabled()
     const unlockedBaseline = screen.getByRole('slider', { name: 'Pixel strength' })
     expect(unlockedBaseline).toHaveAttribute('min', '0')

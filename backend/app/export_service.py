@@ -68,7 +68,7 @@ CSV_FIELDS = [
 ]
 
 
-COMPLEX_TRANSFER_CASE_ID = "complex-transfer-icecream"
+COMPLEX_TRANSFER_CASE_ID = "complex-transfer-mailbox"
 COMPLEX_TRANSFER_REFLECTION_KEYS = {
     "complex_transfer_learning_reflection",
     "complex_transfer_new_error_strategy",

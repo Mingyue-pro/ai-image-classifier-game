@@ -148,13 +148,13 @@
       ]
     },
     {
-      "case_id": "stage2-strawberry-patch",
+      "case_id": "stage2-pizza-patch",
       "stage": "stage2",
-      "subject": "strawberry",
+      "subject": "pizza",
       "attack_type": "patch",
       "interaction_mode": "runtime_parameter_choices",
-      "correct_label": "strawberry",
-      "initial_state_id": "s2-strawberry-patch-initial",
+      "correct_label": "pizza",
+      "initial_state_id": "s2-pizza-patch-initial",
       "max_attempts": null,
       "success_condition": "predict_run_and_compare_actual_classification",
       "fallback_required": false,
@@ -162,8 +162,8 @@
         {
           "parameter": "size_fraction",
           "control_type": "select",
-          "allowed_values": [0.1, 0.15, 0.2],
-          "initial_value": 0.15
+          "allowed_values": [0.25, 0.3, 0.35],
+          "initial_value": 0.3
         },
         {
           "parameter": "position_x",
@@ -174,60 +174,60 @@
         {
           "parameter": "position_y",
           "control_type": "select",
-          "allowed_values": [0.4, 0.5, 0.6],
+          "allowed_values": [0.4, 0.5, 0.7],
           "initial_value": 0.5
         }
       ],
       "states": [
         {
-          "state_id": "s2-strawberry-patch-initial",
+          "state_id": "s2-pizza-patch-initial",
           "role": "initial_correct",
           "requiredness": "required",
           "initial_display": true,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/strawberry.png",
-          "image_path": "data/generated/patch-grid/strawberry-center-015.png",
-          "metadata_path": "data/results/patch-grid/strawberry-center-015.json",
-          "classification_path": "data/results/patch-grid.json",
-          "expected_top1": "strawberry",
+          "source_image_path": "data/raw/candidate/stage2-pixel/pizza-02/original.jpeg",
+          "image_path": "data/generated/patch-grid/pizza-02/centre-030.png",
+          "metadata_path": "data/results/patch-grid/pizza-02/centre-030.json",
+          "classification_path": "data/results/patch-grid/pizza-02.json",
+          "expected_top1": "pizza",
           "expected_classification_changed": false
         },
         {
-          "state_id": "s2-strawberry-patch-option-correct",
+          "state_id": "s2-pizza-patch-option-correct",
           "role": "parameter_option_correct",
           "requiredness": "required",
           "initial_display": false,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/strawberry.png",
-          "image_path": "data/generated/patch-grid/strawberry-center-010.png",
-          "metadata_path": "data/results/patch-grid/strawberry-center-010.json",
-          "classification_path": "data/results/patch-grid.json",
-          "expected_top1": "strawberry",
+          "source_image_path": "data/raw/candidate/stage2-pixel/pizza-02/original.jpeg",
+          "image_path": "data/generated/patch-grid/pizza-02/bottom-left-025.png",
+          "metadata_path": "data/results/patch-grid/pizza-02/bottom-left-025.json",
+          "classification_path": "data/results/patch-grid/pizza-02.json",
+          "expected_top1": "pizza",
           "expected_classification_changed": false
         },
         {
-          "state_id": "s2-strawberry-patch-option-error",
+          "state_id": "s2-pizza-patch-option-error",
           "role": "parameter_option_error",
           "requiredness": "required",
           "initial_display": false,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/strawberry.png",
-          "image_path": "data/generated/patch-grid/strawberry-center-020.png",
-          "metadata_path": "data/results/patch-grid/strawberry-center-020.json",
-          "classification_path": "data/results/patch-grid.json",
-          "expected_top1": "purse",
+          "source_image_path": "data/raw/candidate/stage2-pixel/pizza-02/original.jpeg",
+          "image_path": "data/generated/patch-grid/pizza-02/bottom-left-035.png",
+          "metadata_path": "data/results/patch-grid/pizza-02/bottom-left-035.json",
+          "classification_path": "data/results/patch-grid/pizza-02.json",
+          "expected_top1": "toaster",
           "expected_classification_changed": true
         }
       ]
     },
     {
-      "case_id": "stage2-strawberry-pixel",
+      "case_id": "stage2-pizza-pixel",
       "stage": "stage2",
-      "subject": "strawberry",
+      "subject": "pizza",
       "attack_type": "fgsm",
       "interaction_mode": "runtime_parameter_choices",
-      "correct_label": "strawberry",
-      "initial_state_id": "s2-strawberry-pixel-initial",
+      "correct_label": "pizza",
+      "initial_state_id": "s2-pizza-pixel-initial",
       "max_attempts": null,
       "success_condition": "predict_run_and_compare_actual_classification",
       "fallback_required": false,
@@ -235,48 +235,48 @@
         {
           "parameter": "epsilon_pixels",
           "control_type": "select",
-          "allowed_values": [0, 0.25, 0.5, 0.75, 1, 2, 4],
-          "initial_value": 0.25
+          "allowed_values": [0.5, 1, 2, 4],
+          "initial_value": 0.5
         }
       ],
       "states": [
         {
-          "state_id": "s2-strawberry-pixel-initial",
+          "state_id": "s2-pizza-pixel-initial",
           "role": "initial_correct",
           "requiredness": "required",
           "initial_display": true,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/strawberry.png",
-          "image_path": "data/generated/fgsm-fine/strawberry/epsilon-0p25.png",
-          "classification_path": "data/results/fgsm-fine/strawberry.json",
-          "epsilon_pixels": 0.25,
-          "expected_top1": "strawberry",
+          "source_image_path": "data/raw/candidate/stage2-pixel/pizza-02/original.jpeg",
+          "image_path": "data/generated/fgsm-fine/pizza-02/epsilon-0p5.png",
+          "classification_path": "data/results/fgsm-fine/pizza-02.json",
+          "epsilon_pixels": 0.5,
+          "expected_top1": "pizza",
           "expected_classification_changed": false
         },
         {
-          "state_id": "s2-strawberry-pixel-option-correct",
+          "state_id": "s2-pizza-pixel-option-correct",
           "role": "parameter_option_correct",
           "requiredness": "required",
           "initial_display": false,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/strawberry.png",
-          "image_path": "data/generated/fgsm-fine/strawberry/epsilon-0p75.png",
-          "classification_path": "data/results/fgsm-fine/strawberry.json",
-          "epsilon_pixels": 0.75,
-          "expected_top1": "strawberry",
+          "source_image_path": "data/raw/candidate/stage2-pixel/pizza-02/original.jpeg",
+          "image_path": "data/generated/fgsm-fine/pizza-02/epsilon-001.png",
+          "classification_path": "data/results/fgsm-fine/pizza-02.json",
+          "epsilon_pixels": 1,
+          "expected_top1": "pizza",
           "expected_classification_changed": false
         },
         {
-          "state_id": "s2-strawberry-pixel-option-error",
+          "state_id": "s2-pizza-pixel-option-error",
           "role": "parameter_option_error",
           "requiredness": "required",
           "initial_display": false,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/strawberry.png",
-          "image_path": "data/generated/fgsm-fine/strawberry/epsilon-001.png",
-          "classification_path": "data/results/fgsm-fine/strawberry.json",
-          "epsilon_pixels": 1,
-          "expected_top1": "maillot",
+          "source_image_path": "data/raw/candidate/stage2-pixel/pizza-02/original.jpeg",
+          "image_path": "data/generated/fgsm-fine/pizza-02/epsilon-002.png",
+          "classification_path": "data/results/fgsm-fine/pizza-02.json",
+          "epsilon_pixels": 2,
+          "expected_top1": "frying pan",
           "expected_classification_changed": true
         }
       ]
@@ -372,9 +372,9 @@
         {
           "parameter": "epsilon_pixels",
           "control_type": "select",
-          "allowed_values": [0, 0.25, 0.5, 0.75, 1, 2, 4],
+          "allowed_values": [0.5, 1, 2, 4],
           "initial_value": 4,
-          "fallback_value": 0.25
+          "fallback_value": 0.5
         }
       ],
       "states": [
@@ -411,22 +411,22 @@
           "initial_display": false,
           "include_in_matrix": true,
           "source_image_path": "data/raw/candidate/trafficlight-cropped.png",
-          "image_path": "data/generated/fgsm-screen/trafficlight-cropped/epsilon-0p25.png",
+          "image_path": "data/generated/fgsm-screen/trafficlight-cropped/epsilon-0p5.png",
           "classification_path": "data/results/fgsm-screen/trafficlight-cropped.json",
-          "epsilon_pixels": 0.25,
+          "epsilon_pixels": 0.5,
           "expected_top1": "traffic light",
           "expected_classification_changed": false
         }
       ]
     },
     {
-      "case_id": "transfer-icecream-patch",
+      "case_id": "transfer-mailbox-patch",
       "stage": "transfer",
-      "subject": "ice cream",
+      "subject": "mailbox",
       "attack_type": "patch",
       "interaction_mode": "runtime_transfer",
-      "correct_label": "ice cream",
-      "initial_state_id": "transfer-icecream-patch-initial",
+      "correct_label": "mailbox",
+      "initial_state_id": "transfer-mailbox-patch-initial",
       "max_attempts": 3,
       "success_condition": "top1_equals_correct_label",
       "fallback_required": true,
@@ -435,74 +435,74 @@
           "parameter": "position_x",
           "control_type": "slider",
           "allowed_values": [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
-          "initial_value": 0.6,
-          "fallback_value": 0.5
+          "initial_value": 0.75,
+          "fallback_value": 0.75
         },
         {
           "parameter": "position_y",
           "control_type": "slider",
           "allowed_values": [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1],
-          "initial_value": 0.2,
-          "fallback_value": 0.4
+          "initial_value": 0.25,
+          "fallback_value": 0.75
         },
         {
           "parameter": "size_fraction",
           "control_type": "select",
-          "allowed_values": [0.1, 0.15, 0.2, 0.25, 0.3, 0.35],
+          "allowed_values": [0, 0.15, 0.25, 0.3, 0.35],
           "initial_value": 0.3,
-          "fallback_value": 0.2
+          "fallback_value": 0.25
         }
       ],
       "states": [
         {
-          "state_id": "transfer-icecream-patch-initial",
+          "state_id": "transfer-mailbox-patch-initial",
           "role": "initial_error",
           "requiredness": "required",
           "initial_display": true,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/icecream.png",
-          "image_path": "data/generated/patch-screen/icecream/icecream-x060-y020-s030.png",
-          "metadata_path": "data/results/patch-screen/icecream/icecream-x060-y020-s030.json",
-          "classification_path": "data/results/patch-screen/icecream-classification.json",
+          "source_image_path": "data/raw/candidate/final-transfer/mailbox-01/original.jpeg",
+          "image_path": "data/generated/patch-final-transfer/mailbox-01/top-right-030.png",
+          "metadata_path": "data/results/patch-final-transfer/mailbox-01/top-right-030.json",
+          "classification_path": "data/results/patch-final-transfer/mailbox-01-classification.json",
           "expected_top1": "toaster",
           "expected_classification_changed": true
         },
         {
-          "state_id": "transfer-icecream-patch-ref-error",
+          "state_id": "transfer-mailbox-patch-ref-error",
           "role": "validation_incorrect",
           "requiredness": "reference",
           "initial_display": false,
           "include_in_matrix": false,
-          "source_image_path": "data/raw/candidate/icecream.png",
-          "image_path": "data/generated/patch-screen/icecream/icecream-x050-y040-s025.png",
-          "metadata_path": "data/results/patch-screen/icecream/icecream-x050-y040-s025.json",
-          "classification_path": "data/results/patch-screen/icecream-classification.json",
+          "source_image_path": "data/raw/candidate/final-transfer/mailbox-01/original.jpeg",
+          "image_path": "data/generated/patch-final-transfer/mailbox-01/centre-030.png",
+          "metadata_path": "data/results/patch-final-transfer/mailbox-01/centre-030.json",
+          "classification_path": "data/results/patch-final-transfer/mailbox-01-classification.json",
           "expected_top1": "toaster",
           "expected_classification_changed": true
         },
         {
-          "state_id": "transfer-icecream-patch-fallback",
+          "state_id": "transfer-mailbox-patch-fallback",
           "role": "fallback_correct",
           "requiredness": "required",
           "initial_display": false,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/icecream.png",
-          "image_path": "data/generated/patch-screen/icecream/icecream-x050-y040-s020.png",
-          "metadata_path": "data/results/patch-screen/icecream/icecream-x050-y040-s020.json",
-          "classification_path": "data/results/patch-screen/icecream-classification.json",
-          "expected_top1": "ice cream",
+          "source_image_path": "data/raw/candidate/final-transfer/mailbox-01/original.jpeg",
+          "image_path": "data/generated/patch-final-transfer/mailbox-01/bottom-right-025.png",
+          "metadata_path": "data/results/patch-final-transfer/mailbox-01/bottom-right-025.json",
+          "classification_path": "data/results/patch-final-transfer/mailbox-01-classification.json",
+          "expected_top1": "mailbox",
           "expected_classification_changed": false
         }
       ]
     },
     {
-      "case_id": "transfer-icecream-pixel",
+      "case_id": "transfer-mailbox-pixel",
       "stage": "transfer",
-      "subject": "ice cream",
+      "subject": "mailbox",
       "attack_type": "fgsm",
       "interaction_mode": "runtime_transfer",
-      "correct_label": "ice cream",
-      "initial_state_id": "transfer-icecream-pixel-initial",
+      "correct_label": "mailbox",
+      "initial_state_id": "transfer-mailbox-pixel-initial",
       "max_attempts": 3,
       "success_condition": "top1_equals_correct_label",
       "fallback_required": true,
@@ -510,49 +510,49 @@
         {
           "parameter": "epsilon_pixels",
           "control_type": "select",
-          "allowed_values": [0, 0.25, 0.5, 0.75, 1, 2, 4],
+          "allowed_values": [0, 0.5, 1, 2, 4],
           "initial_value": 4,
-          "fallback_value": 0
+          "fallback_value": 0.5
         }
       ],
       "states": [
         {
-          "state_id": "transfer-icecream-pixel-initial",
+          "state_id": "transfer-mailbox-pixel-initial",
           "role": "initial_error",
           "requiredness": "required",
           "initial_display": true,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/icecream.png",
-          "image_path": "data/generated/fgsm-screen/icecream/epsilon-004.png",
-          "classification_path": "data/results/fgsm-screen/icecream.json",
+          "source_image_path": "data/raw/candidate/final-transfer/mailbox-01/original.jpeg",
+          "image_path": "data/generated/fgsm-final-transfer/mailbox-01/epsilon-004.png",
+          "classification_path": "data/results/fgsm-final-transfer/mailbox-01.json",
           "epsilon_pixels": 4,
-          "expected_top1": "acorn squash",
+          "expected_top1": "gas pump",
           "expected_classification_changed": true
         },
         {
-          "state_id": "transfer-icecream-pixel-ref-error",
+          "state_id": "transfer-mailbox-pixel-ref-error",
           "role": "validation_incorrect",
           "requiredness": "reference",
           "initial_display": false,
           "include_in_matrix": false,
-          "source_image_path": "data/raw/candidate/icecream.png",
-          "image_path": "data/generated/fgsm-screen/icecream/epsilon-0p5.png",
-          "classification_path": "data/results/fgsm-screen/icecream.json",
-          "epsilon_pixels": 0.5,
-          "expected_top1": "acorn squash",
+          "source_image_path": "data/raw/candidate/final-transfer/mailbox-01/original.jpeg",
+          "image_path": "data/generated/fgsm-final-transfer/mailbox-01/epsilon-001.png",
+          "classification_path": "data/results/fgsm-final-transfer/mailbox-01.json",
+          "epsilon_pixels": 1,
+          "expected_top1": "gas pump",
           "expected_classification_changed": true
         },
         {
-          "state_id": "transfer-icecream-pixel-fallback",
+          "state_id": "transfer-mailbox-pixel-fallback",
           "role": "fallback_correct",
           "requiredness": "required",
           "initial_display": false,
           "include_in_matrix": true,
-          "source_image_path": "data/raw/candidate/icecream.png",
-          "image_path": "data/generated/fgsm-screen/icecream/epsilon-000.png",
-          "classification_path": "data/results/fgsm-screen/icecream.json",
-          "epsilon_pixels": 0,
-          "expected_top1": "ice cream",
+          "source_image_path": "data/raw/candidate/final-transfer/mailbox-01/original.jpeg",
+          "image_path": "data/generated/fgsm-final-transfer/mailbox-01/epsilon-0p5.png",
+          "classification_path": "data/results/fgsm-final-transfer/mailbox-01.json",
+          "epsilon_pixels": 0.5,
+          "expected_top1": "mailbox",
           "expected_classification_changed": false
         }
       ]

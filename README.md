@@ -4,13 +4,13 @@ An educational game for investigating how image modifications affect image class
 
 ## Project Status
 
-Current phase: Project setup complete; model integration beginning.
+Current release: Final v3.0 evaluation version. The formal image stimuli are frozen in a separately versioned Final asset bundle.
 
 ## Core Research Focus
 
 The project investigates whether the following interaction process helps non-expert young adults understand when image modifications cause image classifier misclassification:
 
-Predict → Manipulate → Reclassify → Compare → Explain
+Observe → Predict → Manipulate → Reclassify → Compare → Reflect
 
 ## Core Technologies
 
@@ -47,16 +47,38 @@ docs/         Research scope, architecture and decision records
 - [Scope Boundaries](docs/scope-boundaries.md)
 - [Technical Architecture](docs/architecture.md)
 - [Research Decision Log](docs/research-decisions.md)
+- [Final Evaluation Asset Bundle](docs/final-assets.md)
 
 ## Current Milestone
 
-Core Flow Demonstrator for supervisor review on 21 July 2026.
+Final v3.0 resource freeze, terminology review, full-flow self-test, and research-data audit before the Final evaluation.
 
 ## Development Principle
 
 The core research scope is fixed. Detailed interaction and game features will be refined after the core technical and learning flow is operational.
 
 ## Local Development
+
+### Required Final Assets
+
+A clean clone does not include the Final research images, generated case images, Patch assets, FGSM tensors, class examples, or runtime case matrix. Obtain the separately versioned Final v3.0 asset bundle before running the full study flow.
+
+Check the downloaded archive:
+
+```bash
+shasum -a 256 -c ai-image-classifier-game-final-assets-v3.0.tar.gz.sha256
+```
+
+Install and verify it from the repository root:
+
+```bash
+python -m scripts.final_assets install \
+  /absolute/path/ai-image-classifier-game-final-assets-v3.0.tar.gz
+
+python -m scripts.final_assets verify
+```
+
+See the [Final Evaluation Asset Bundle](docs/final-assets.md) document for the frozen filename and SHA256, bundle contents, recovery procedure, backup policy, and distribution boundary.
 
 ### Backend
 

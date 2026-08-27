@@ -33,7 +33,7 @@ describe('game progress restoration', () => {
       participant: { id: 'participant-1' },
       researchSession: { id: 'session-1' },
       activeStage: {
-        playerCase: { case_id: 'complex-transfer-icecream' },
+        playerCase: { case_id: 'complex-transfer-mailbox' },
         stageRun: { completion_status: 'completed', attempt_count: 3 },
       },
     }

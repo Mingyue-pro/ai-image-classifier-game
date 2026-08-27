@@ -48,6 +48,8 @@ test('shows neutral Observe evidence without revealing the three-factor case con
 
   await user.click(screen.getByRole('button', { name: 'Plan the first investigation' }))
   expect(screen.getByText('What would you like to investigate first?')).toBeInTheDocument()
+  expect(screen.getByText(/Patch and Pixel were examples used for practice in Stage 3/)).toBeInTheDocument()
+  expect(screen.getByText(/They are not required steps, and there is no fixed order/)).toBeInTheDocument()
 })
 
 
@@ -98,7 +100,14 @@ test('records page visits and a factor-specific Manipulate duration without crea
   await user.click(screen.getByRole('radio', { name: 'Pixel-level modification' }))
   await user.click(screen.getByRole('radio', { name: 'The AI may stay the same' }))
   await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
-  await user.click(screen.getByRole('button', { name: /Medium.*2\/255/i }))
+  const pixelStrengthSlider = screen.getByRole('slider', { name: 'Transfer Pixel Strength' })
+  expect(pixelStrengthSlider).toHaveAttribute('min', '0')
+  expect(pixelStrengthSlider).toHaveAttribute('max', '4')
+  expect(pixelStrengthSlider).toHaveValue('4')
+  expect(pixelStrengthSlider).toHaveAttribute('aria-valuetext', '4/255')
+  fireEvent.change(pixelStrengthSlider, { target: { value: '3' } })
+  expect(pixelStrengthSlider).toHaveValue('3')
+  expect(pixelStrengthSlider).toHaveAttribute('aria-valuetext', '2/255')
   await user.click(screen.getByRole('button', { name: 'Continue' }))
 
   await waitFor(() => expect(onTimingEvent).toHaveBeenCalledWith(expect.objectContaining({
@@ -155,21 +164,27 @@ test('activates only Pixel and preserves the current Patch and Blur state', asyn
   await user.click(screen.getByRole('radio', { name: 'The AI may change category, but I am not sure whether it will be correct' }))
   await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
 
-  expect(screen.getByRole('region', { name: 'pixel manipulation tool' })).toBeInTheDocument()
-  expect(screen.getByLabelText('Select Pixel inspection region for ice cream')).toBeInTheDocument()
-  expect(screen.getByRole('region', { name: 'pixel manipulation tool' }).parentElement).toHaveClass('single-parameter-experiment')
+  expect(screen.getByText('Before · Current Cumulative State | Preview · Selected Strength').closest('.pixel-manipulate-layout')).toBeInTheDocument()
+  expect(screen.queryByLabelText('About Pixel modification')).not.toBeInTheDocument()
+  expect(screen.getByText('What is Pixel Strength?').closest('details')).not.toHaveAttribute('open')
+  expect(screen.getByText('Investigate the image and find a way to restore the correct classification.')).toBeInTheDocument()
+  expect(screen.getByRole('img', { name: 'Current cumulative ice cream state with fixed 32 by 32 region' })).toBeInTheDocument()
+  expect(screen.getByRole('region', { name: '32×32 Selected Region' })).toBeInTheDocument()
+  expect(screen.queryByLabelText('Select Pixel inspection region for ice cream')).not.toBeInTheDocument()
+  expect(screen.getByText('Previous attempts / results')).toBeInTheDocument()
+  expect(screen.queryByText('Use the evidence from your previous attempts to decide what to try next.')).not.toBeInTheDocument()
   expect(screen.queryByRole('slider', { name: 'Patch horizontal position' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: /Radius 8/i })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Setting 8/i })).not.toBeInTheDocument()
   const continueButton = screen.getByRole('button', { name: 'Continue' })
   expect(continueButton).toBeDisabled()
-  await user.click(screen.getByRole('button', { name: /Medium.*2\/255/i }))
+  fireEvent.change(screen.getByRole('slider', { name: 'Transfer Pixel Strength' }), { target: { value: '3' } })
   expect(continueButton).toBeEnabled()
   await user.click(continueButton)
 
   expect(onManipulationConfirmed).toHaveBeenCalledWith({
     selectedFactor: 'pixel',
-    beforeParameters: { patch: { size: 0.3, positionX: 0.6, positionY: 0.2 }, pixelStrength: 4, blurLevel: 'high' },
-    afterParameters: { patch: { size: 0.3, positionX: 0.6, positionY: 0.2 }, pixelStrength: 2, blurLevel: 'high' },
+    beforeParameters: { patch: { size: 0.3, positionX: 0.75, positionY: 0.25 }, pixelStrength: 4, blurLevel: 'high' },
+    afterParameters: { patch: { size: 0.3, positionX: 0.75, positionY: 0.25 }, pixelStrength: 2, blurLevel: 'high' },
   })
   expect(screen.getByRole('heading', { name: 'Image after manipulation' })).toBeInTheDocument()
   expect(screen.getByRole('img', { name: 'Complex Transfer ice cream after manipulation' })).toBeInTheDocument()
@@ -187,16 +202,16 @@ test('offers Patch position, size, or both without changing other factors', asyn
   await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
 
   expect(screen.getByRole('slider', { name: 'Patch horizontal position' })).toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: '10%' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '15%' })).not.toBeInTheDocument()
   await user.click(screen.getByRole('radio', { name: 'Both' }))
-  expect(screen.getByRole('button', { name: '10%' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '15%' })).toBeInTheDocument()
   fireEvent.change(screen.getByRole('slider', { name: 'Patch horizontal position' }), { target: { value: '0.8' } })
-  await user.click(screen.getByRole('button', { name: '10%' }))
+  await user.click(screen.getByRole('button', { name: '15%' }))
   await user.click(screen.getByRole('button', { name: 'Continue' }))
 
   expect(onManipulationConfirmed).toHaveBeenCalledWith(expect.objectContaining({
     selectedFactor: 'patch',
-    afterParameters: { patch: { size: 0.1, positionX: 0.8, positionY: 0.2 }, pixelStrength: 4, blurLevel: 'high' },
+    afterParameters: { patch: { size: 0.15, positionX: 0.8, positionY: 0.25 }, pixelStrength: 4, blurLevel: 'high' },
   }))
 })
 
@@ -210,16 +225,44 @@ test('uses the Phase 1 Gaussian Blur levels and requires a different level', asy
   await user.click(screen.getAllByRole('radio', { name: 'Not sure' })[1])
   await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
 
-  expect(screen.getByRole('button', { name: /high.*Radius 16/i })).toHaveAttribute('aria-pressed', 'true')
-  expect(screen.getByRole('button', { name: /medium.*Radius 8/i })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /low.*Radius 4/i })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /none.*Radius 0/i })).toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: /low.*Radius 4/i }))
+  expect(screen.getByRole('group', { name: 'Blur Strength' })).toBeInTheDocument()
+  expect(screen.getByText(/Blur Strength controls how strongly and broadly neighbouring pixel values are blended/)).toBeInTheDocument()
+  expect(screen.getByText('? What do the Blur values mean?').closest('details')).not.toHaveAttribute('open')
+  expect(screen.getByRole('button', { name: /High.*Setting 16/i })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('button', { name: /Medium.*Setting 8/i })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Low.*Setting 4/i })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /None.*Setting 0/i })).toBeInTheDocument()
+  await user.click(screen.getByText('? What do the Blur values mean?'))
+  expect(screen.getByText(/The values are not pixel counts or circular boundaries/)).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: /Low.*Setting 4/i }))
   await user.click(screen.getByRole('button', { name: 'Continue' }))
   expect(onManipulationConfirmed).toHaveBeenCalledWith(expect.objectContaining({
     selectedFactor: 'blur',
     afterParameters: expect.objectContaining({ blurLevel: 'low' }),
   }))
+})
+
+
+test.each(['Patch', 'Blur'] as const)('shows previous Transfer attempts while manipulating %s', async (factor) => {
+  const user = userEvent.setup()
+  render(<ComplexTransferFlow
+    imageUrl="/attempt-1.png"
+    subject="mailbox"
+    currentPrediction={{ label: 'punching bag', probability: 0.64, class_index: 747 }}
+    attemptIndex={1}
+    attemptHistory={[summaryAttempts[0]]}
+    onPlanConfirmed={vi.fn()}
+  />)
+
+  await user.click(screen.getByRole('button', { name: 'Plan the first investigation' }))
+  await user.click(screen.getByRole('radio', { name: factor }))
+  await user.click(screen.getByRole('radio', { name: 'The AI may stay the same' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
+
+  const history = screen.getByRole('region', { name: `Previous Transfer attempts and results for ${factor.toLowerCase()}` })
+  expect(history).toHaveTextContent('Previous attempts / results')
+  expect(history).toHaveTextContent('Attempt 1: Blur')
+  expect(history).toHaveTextContent('Incorrect · toaster')
 })
 
 
@@ -238,7 +281,7 @@ test('shows the new classification before the user continues to factual comparis
   await user.click(screen.getByRole('radio', { name: 'Blur' }))
   await user.click(screen.getByRole('radio', { name: 'The AI may change category, but I am not sure whether it will be correct' }))
   await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
-  await user.click(screen.getByRole('button', { name: /low.*Radius 4/i }))
+  await user.click(screen.getByRole('button', { name: /Low.*Setting 4/i }))
   await user.click(screen.getByRole('button', { name: 'Continue' }))
   await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
 
@@ -248,9 +291,9 @@ test('shows the new classification before the user continues to factual comparis
   expect(await screen.findByRole('heading', { name: 'Still incorrect' })).toBeInTheDocument()
   expect(onReclassify).toHaveBeenCalledTimes(1)
   expect(screen.getByRole('region', { name: 'Before classification' })).toHaveTextContent('toaster')
-  expect(screen.getByRole('region', { name: 'Before classification' })).toHaveTextContent('Blurhigh · radius 16')
+  expect(screen.getByRole('region', { name: 'Before classification' })).toHaveTextContent('Blur StrengthHigh · Setting 16')
   expect(screen.getByRole('region', { name: 'After classification' })).toHaveTextContent('eggnog')
-  expect(screen.getByRole('region', { name: 'After classification' })).toHaveTextContent('Blur Modified factorlow · radius 4')
+  expect(screen.getByRole('region', { name: 'After classification' })).toHaveTextContent('Blur Strength Modified factorLow · Setting 4')
   expect(screen.getByText('Remaining attempts').parentElement).toHaveTextContent('4')
   expect(screen.queryByText(/Patch is solved/i)).not.toBeInTheDocument()
   expect(screen.queryByText(/Pixel no longer matters/i)).not.toBeInTheDocument()
@@ -297,7 +340,7 @@ test('uses the refreshed backend state when a second Attempt changes another fac
   await user.click(screen.getByRole('radio', { name: 'Blur' }))
   await user.click(screen.getByRole('radio', { name: 'The AI may stay the same' }))
   await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
-  await user.click(screen.getByRole('button', { name: /low.*Radius 4/i }))
+  await user.click(screen.getByRole('button', { name: /Low.*Setting 4/i }))
   await user.click(screen.getByRole('button', { name: 'Continue' }))
   await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
   await user.click(screen.getByRole('button', { name: 'Next' }))
@@ -309,19 +352,24 @@ test('uses the refreshed backend state when a second Attempt changes another fac
   await user.click(screen.getByRole('radio', { name: 'The AI may change category, but I am not sure whether it will be correct' }))
   await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
   expect(onDecideNext).toHaveBeenCalledTimes(1)
-  expect(screen.getByText('Blur: low · radius 4')).toBeInTheDocument()
+  expect(screen.getByText('Blur: Low · Setting 4')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Back to Choose' })).toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Back to Choose' }))
   expect(screen.getByRole('heading', { name: 'Choose and predict the next adjustment' })).toBeInTheDocument()
   await user.click(screen.getByRole('radio', { name: 'Pixel-level modification' }))
   await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
-  await user.click(screen.getByRole('button', { name: /Medium.*2\/255/i }))
+  fireEvent.change(screen.getByRole('slider', { name: 'Transfer Pixel Strength' }), { target: { value: '3' } })
   await user.click(screen.getByRole('button', { name: 'Continue' }))
   await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
   await user.click(screen.getByRole('button', { name: 'Next' }))
   await screen.findByText('Remaining attempts')
-  expect(screen.getByText('1. Before selected crop')).toBeInTheDocument()
-  expect(screen.getByText('2. After selected crop')).toBeInTheDocument()
+  const pixelInspector = screen.getByText('Inspect pixel-level differences').closest('details')
+  expect(pixelInspector).not.toHaveAttribute('open')
+  await user.click(screen.getByText('Inspect pixel-level differences'))
+  expect(pixelInspector).toHaveAttribute('open')
+  expect(screen.getByText('1. Pre-round cumulative state selected crop')).toBeInTheDocument()
+  expect(screen.getByText('2. Post-round state selected crop')).toBeInTheDocument()
+  expect(screen.getByText('Enhanced Difference · Same 8×8 Region')).toBeInTheDocument()
   expect(screen.queryByText('1. Original selected crop')).not.toBeInTheDocument()
 
   expect(onReclassify).toHaveBeenNthCalledWith(2, expect.objectContaining({
@@ -330,6 +378,60 @@ test('uses the refreshed backend state when a second Attempt changes another fac
     afterParameters: expect.objectContaining({ blurLevel: 'low', pixelStrength: 2 }),
   }), expect.anything())
   expect(screen.getByText('Remaining attempts').parentElement).toHaveTextContent('3')
+})
+
+
+test('carries a previous Pixel change into the next Blur attempt', async () => {
+  const user = userEvent.setup()
+  const onManipulationConfirmed = vi.fn()
+  const onReclassify = vi.fn().mockResolvedValue({
+    imageUrl: '/attempt-1.png',
+    beforePrediction: { label: 'punching bag', probability: 0.64, class_index: 747 },
+    prediction: { label: 'punching bag', probability: 0.62, class_index: 747 },
+    classificationRestored: false,
+    attemptIndex: 1,
+    remainingAttempts: 4,
+  })
+  const initialParameters = {
+    patch: { size: 0.3, positionX: 0.75, positionY: 0.25 },
+    pixelStrength: 4,
+    blurLevel: 'high' as const,
+  }
+  const props = {
+    imageUrl: '/complex-transfer.png',
+    subject: 'mailbox',
+    currentPrediction: { label: 'punching bag', probability: 0.64, class_index: 747 },
+    currentParameters: initialParameters,
+    onPlanConfirmed: vi.fn(),
+    onManipulationConfirmed,
+    onReclassify,
+    onDecideNext: vi.fn().mockResolvedValue(undefined),
+  }
+  const view = render(<ComplexTransferFlow {...props} />)
+
+  await user.click(screen.getByRole('button', { name: 'Plan the first investigation' }))
+  await user.click(screen.getByRole('radio', { name: 'Pixel-level modification' }))
+  await user.click(screen.getByRole('radio', { name: 'The AI may stay the same' }))
+  await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
+  fireEvent.change(screen.getByRole('slider', { name: 'Transfer Pixel Strength' }), { target: { value: '3' } })
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
+  await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
+  await user.click(screen.getByRole('button', { name: 'Next' }))
+
+  const cumulativeParameters = { ...initialParameters, pixelStrength: 2 }
+  view.rerender(<ComplexTransferFlow {...props} imageUrl="/attempt-1.png" attemptIndex={1} currentParameters={cumulativeParameters} />)
+  await user.click(screen.getByRole('button', { name: 'Continue repair' }))
+  await user.click(screen.getByRole('radio', { name: 'Blur / image clarity' }))
+  await user.click(screen.getByRole('radio', { name: 'The AI may stay the same' }))
+  await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
+  await user.click(screen.getByRole('button', { name: /Low.*Setting 4/i }))
+  await user.click(screen.getByRole('button', { name: 'Continue' }))
+
+  expect(onManipulationConfirmed).toHaveBeenNthCalledWith(2, {
+    selectedFactor: 'blur',
+    beforeParameters: cumulativeParameters,
+    afterParameters: { ...cumulativeParameters, blurLevel: 'low' },
+  })
 })
 
 
@@ -343,7 +445,7 @@ test('keeps the Reclassify step visible and reports a backend error', async () =
   await user.click(screen.getByRole('radio', { name: 'Blur' }))
   await user.click(screen.getByRole('radio', { name: 'The AI may stay the same' }))
   await user.click(screen.getByRole('button', { name: 'Confirm plan' }))
-  await user.click(screen.getByRole('button', { name: /low.*Radius 4/i }))
+  await user.click(screen.getByRole('button', { name: /Low.*Setting 4/i }))
   await user.click(screen.getByRole('button', { name: 'Continue' }))
   await user.click(screen.getByRole('button', { name: 'Reclassify image' }))
 
@@ -378,7 +480,7 @@ test('uses the two required Reflection questions after a successful run and comp
   expect(screen.getByRole('region', { name: 'Transfer result' })).toHaveTextContent('2 / 5')
   expect(screen.getByRole('heading', { name: 'Final repair parameters' }).parentElement).toHaveTextContent('Enabled · Size 30% · X 0.60 · Y 0.20')
   expect(screen.getByRole('heading', { name: 'Final repair parameters' }).parentElement).toHaveTextContent('0/255')
-  expect(screen.getByRole('heading', { name: 'Final repair parameters' }).parentElement).toHaveTextContent('low · radius 4')
+  expect(screen.getByRole('heading', { name: 'Final repair parameters' }).parentElement).toHaveTextContent('Low · Setting 4')
   expect(screen.getByRole('heading', { name: 'Final repair parameters' }).parentElement).toHaveTextContent('Final classificationice cream')
   expect(screen.getAllByRole('listitem')).toHaveLength(2)
   expect(screen.getByText('Attempt 1 — Blur')).toBeInTheDocument()
@@ -401,6 +503,7 @@ test('uses the two required Reflection questions after a successful run and comp
   await user.click(finish)
   expect(onSubmitReflection).toHaveBeenCalledWith({ learningReflection: 'A', newErrorStrategy: 'B' })
   expect(await screen.findByRole('heading', { name: 'Transfer complete' })).toBeInTheDocument()
+  expect(screen.getByText(/Patch, Pixel and Blur were examples; the reusable outcome is the investigation process/)).toBeInTheDocument()
 })
 
 
@@ -422,7 +525,7 @@ test('uses the same Reflection questions after an exhausted run', async () => {
     attemptHistory={exhaustedAttempts}
     runFinished
     runSuccess={false}
-    referenceParameters={{ patch: { size: 0.1, positionX: 0.8, positionY: 0.2 }, pixelStrength: 0, blurLevel: 'low' }}
+    referenceParameters={{ patch: { size: 0, positionX: 0.75, positionY: 0.25 }, pixelStrength: 0.5, blurLevel: 'none' }}
     referenceTop1Label="ice cream"
     onPlanConfirmed={vi.fn()}
     onSubmitReflection={vi.fn().mockResolvedValue(undefined)}
@@ -438,11 +541,12 @@ test('uses the same Reflection questions after an exhausted run', async () => {
   const referenceComparison = screen.getByRole('region', { name: 'One verified reference' })
   expect(finalComparison).toHaveTextContent('Enabled · Size 30% · X 0.60 · Y 0.20')
   expect(finalComparison).toHaveTextContent('4/255')
-  expect(finalComparison).toHaveTextContent('low · radius 4')
+  expect(finalComparison).toHaveTextContent('Low · Setting 4')
   expect(finalComparison).toHaveTextContent('Final state classificationtoaster')
-  expect(referenceComparison).toHaveTextContent('Enabled · Size 10% · X 0.80 · Y 0.20')
-  expect(referenceComparison).toHaveTextContent('0/255')
-  expect(referenceComparison).toHaveTextContent('low · radius 4')
+  expect(referenceComparison).toHaveTextContent('Removed · Size 0%')
+  expect(referenceComparison).not.toHaveTextContent('X 0.75')
+  expect(referenceComparison).toHaveTextContent('0.5/255')
+  expect(referenceComparison).toHaveTextContent('None · Setting 0')
   expect(referenceComparison).toHaveTextContent('Verified classificationice cream')
   expect(screen.queryByRole('heading', { name: 'What would you like to investigate next?' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Reclassify image' })).not.toBeInTheDocument()

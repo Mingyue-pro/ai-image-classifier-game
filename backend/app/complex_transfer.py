@@ -129,15 +129,15 @@ class ComplexTransferState:
 def initial_complex_transfer_state() -> ComplexTransferState:
     """Return the verified T0 state without encoding any unique repair answer."""
     return ComplexTransferState(
-        expected_class="ice cream",
+        expected_class="mailbox",
         current_parameters=ComplexTransferParameters(
-            patch=PatchState(size_fraction=0.30, position_x=0.60, position_y=0.20),
+            patch=PatchState(size_fraction=0.30, position_x=0.75, position_y=0.25),
             pixel_strength=4.0,
             blur_level="high",
         ),
         current_classification=ClassificationState(
-            top1_label="toaster",
-            top1_score=0.497349,
+            top1_label="punching bag",
+            top1_score=0.643236517906189,
         ),
     )
 
