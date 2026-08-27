@@ -237,7 +237,7 @@ describe('App anonymous session onboarding', () => {
     expect(journeyMap).toHaveTextContent('Transfer')
     expect(screen.getByRole('heading', { name: 'Follow the learning journey' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Participation agreement' })).toBeInTheDocument()
-    expect(screen.getByText('Please confirm that you have read the participant information and agree to take part in this game.')).toBeInTheDocument()
+    expect(screen.getByText('Please confirm that you have read the participant information and agree to take part in this evaluation study.')).toBeInTheDocument()
     expect(screen.queryByText(/formative evaluation/i)).not.toBeInTheDocument()
     expect(screen.getByText('No name or email is requested.')).toBeInTheDocument()
     expect(screen.getByText('Your choices, parameters, predictions, and answers are recorded.')).toBeInTheDocument()
@@ -310,10 +310,80 @@ describe('App anonymous session onboarding', () => {
     await user.click(screen.getByRole('button', { name: 'Home' }))
     expect(window.location.pathname).toBe('/agreement')
     expect(screen.getByRole('heading', { name: /Enter the Investigation Garden/ })).toBeInTheDocument()
+    expect(screen.getByText('Anonymous session active')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Participation agreement' })).not.toBeInTheDocument()
     const beginInvestigation = screen.getByRole('link', { name: 'Begin investigation' })
     expect(beginInvestigation).toHaveAttribute('href', '#stage-overview')
     await user.click(beginInvestigation)
     expect(window.location.hash).toBe('#stage-overview')
+  })
+
+  test('keeps the completed anonymous session when returning home from the report', async () => {
+    const completedSession = {
+      ...researchSession,
+      completion_status: 'completed',
+      completed_at: '2026-08-27T16:00:00Z',
+    }
+    const report = {
+      report_version: 2,
+      session: {
+        completion_status: 'completed',
+        completed_at: completedSession.completed_at,
+        game_version: 'v3.0',
+      },
+      overview: {
+        stages_completed: 4,
+        stages_total: 4,
+        evidence_records: 0,
+        autonomous_attempts: 0,
+        fallback_records: 0,
+        predictions_recorded: 0,
+        decisive_predictions: 0,
+        prediction_matches: 0,
+        uncertain_predictions: 0,
+        autonomous_restorations: 0,
+        fallback_methods: [],
+      },
+      process_profile: {
+        controlled_adjustments: 0,
+        transfer_conclusion_status: 'review_recommended',
+      },
+      transfer: {
+        strategy: null,
+        strategy_reason: null,
+        repairs: {
+          Patch: { direction: null, reason: null },
+          Pixel: { direction: null, reason: null },
+        },
+        evidence_conclusion: null,
+        evidence_explanation: null,
+      },
+      stage3_reflection: {},
+      feedback: [],
+      evidence: [],
+    }
+    sessionStorage.setItem(
+      GAME_PROGRESS_STORAGE_KEY,
+      JSON.stringify({ participant, researchSession: completedSession, activeStage: null }),
+    )
+    window.history.replaceState({}, '', '/complete')
+    vi.stubGlobal('fetch', vi.fn().mockImplementation((input: string | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/health')) return Promise.resolve(jsonResponse({ status: 'ok' }))
+      if (url.endsWith(`/research/sessions/${completedSession.id}/report`)) {
+        return Promise.resolve(jsonResponse(report))
+      }
+      return Promise.reject(new Error(`Unexpected request: ${url}`))
+    }))
+    const user = userEvent.setup()
+
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: 'Return home' }))
+
+    expect(window.location.pathname).toBe('/agreement')
+    expect(screen.getByText('Anonymous session active')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Participation agreement' })).not.toBeInTheDocument()
   })
 
   test('shows a server error and reuses the participant when retrying', async () => {
