@@ -131,7 +131,7 @@ class ComplexTransferService:
             classification_changed=result.top1.label != state.current_classification.top1_label,
             correct_label_is_top1=result.top1.label.casefold() == EXPECTED_CLASS.casefold(),
             classification_restored=result.state.success,
-            output_image_path=output_path.relative_to(self.project_root).as_posix(),
+            output_image_path=output_path.relative_to(self.runtime_root).as_posix(),
         )
         if result.state.finished:
             self.repository.complete_stage_run(

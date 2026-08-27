@@ -35,6 +35,9 @@ class FakeClassifier:
 
 
 def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    runtime_root = tmp_path / "persistent-runtime"
     source_path = tmp_path / "source.png"
     patch_path = tmp_path / "patch.png"
     delta_path = tmp_path / "delta.pt"
@@ -51,7 +54,9 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
         participant = repository.create_participant("complex-participant")
         session = repository.create_session(participant.id, "v2")
         classifier = FakeClassifier(["punching bag", "punching bag", "mailbox"])
-        service = ComplexTransferService(repository, classifier, tmp_path, tmp_path / "runtime")
+        service = ComplexTransferService(
+            repository, classifier, project_root, runtime_root
+        )
         service.assets = ComplexTransferAssets(source_path, delta_path, patch_path)
         app.dependency_overrides[get_complex_transfer_service] = lambda: service
         try:
@@ -141,6 +146,7 @@ def test_formal_complex_transfer_api_persists_state_and_attempts(tmp_path: Path)
 
             attempts = list(database_session.scalars(select(Attempt).order_by(Attempt.attempt_number)))
             assert len(attempts) == 2
+            assert all(not Path(attempt.output_image_path).is_absolute() for attempt in attempts)
             assert attempts[0].tool_type == "complex_transfer_patch"
             assert attempts[0].prediction_reason == "Visible region may matter."
             assert attempts[1].parameters_before["patch_size_fraction"] == 0.15
