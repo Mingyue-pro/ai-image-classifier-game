@@ -1,4 +1,11 @@
-import { defineRailway, project, service, volume } from "railway/iac";
+import {
+  defineRailway,
+  github,
+  preserve,
+  project,
+  service,
+  volume,
+} from "railway/iac";
 
 // Last resort for a per-service CaC repo. Prefer one .railway file for the
 // project and drop this if you later combine services into that file.
@@ -19,6 +26,9 @@ export default defineRailway(() => {
   });
 
   const web = service("web", {
+    source: github("Mingyue-pro/ai-image-classifier-game", {
+      branch: "feature/railway-deployment",
+    }),
     start: "python -m scripts.production_start",
     healthcheck: "/health",
     healthcheckTimeout: 600,
@@ -30,6 +40,16 @@ export default defineRailway(() => {
     },
     volumeMounts: {
       "/data": gameData,
+    },
+    env: {
+      AI_IMAGE_GAME_DATABASE_URL: preserve(),
+      AI_IMAGE_GAME_FINAL_ASSET_BUNDLE: preserve(),
+      AI_IMAGE_GAME_FINAL_ASSET_SHA256: preserve(),
+      AI_IMAGE_GAME_PRELOAD_MODEL: preserve(),
+      AI_IMAGE_GAME_RUNTIME_ROOT: preserve(),
+      GAME_VERSION: preserve(),
+      STUDY_PHASE: preserve(),
+      TORCH_HOME: preserve(),
     },
     // dockerfilePath from CaC: "Dockerfile"
     // builder from CaC: "DOCKERFILE"
