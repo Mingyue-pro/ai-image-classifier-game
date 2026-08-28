@@ -4,6 +4,7 @@ FastAPI can get classifier through get_inference_service(),
 real classifier can be replaced with a fake classifier in some tests
 """
 from functools import lru_cache
+import os
 from pathlib import Path
 
 from fastapi import Depends
@@ -18,6 +19,18 @@ from backend.app.export_service import ResearchExportService
 from backend.app.report_service import InvestigatorReportService
 from backend.app.repositories.research_repository import ResearchRepository
 from backend.app.complex_transfer_service import ComplexTransferService
+
+
+RUNTIME_ROOT_ENVIRONMENT_VARIABLE = "AI_IMAGE_GAME_RUNTIME_ROOT"
+
+
+def configured_runtime_root(project_root: Path | None = None) -> Path:
+    """Return the persistent runtime-image directory for this environment."""
+    root = (project_root or Path.cwd()).resolve()
+    configured = os.getenv(RUNTIME_ROOT_ENVIRONMENT_VARIABLE)
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return root / "data" / "runtime"
 
 
 @lru_cache(maxsize=1)
@@ -57,7 +70,7 @@ def get_game_service(
         repository=repository,
         classifier=classifier,
         project_root=project_root,
-        runtime_root=project_root / "data" / "runtime",
+        runtime_root=configured_runtime_root(project_root),
     )
 
 
@@ -66,7 +79,12 @@ def get_complex_transfer_service(
     classifier: ImageClassifier = Depends(get_inference_service),
 ) -> ComplexTransferService:
     project_root = Path.cwd().resolve()
-    return ComplexTransferService(repository, classifier, project_root, project_root / "data" / "runtime")
+    return ComplexTransferService(
+        repository,
+        classifier,
+        project_root,
+        configured_runtime_root(project_root),
+    )
 
 
 def get_research_export_service(

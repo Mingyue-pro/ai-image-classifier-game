@@ -18,6 +18,8 @@ from backend.app.database_models import Base
 DATABASE_URL_ENVIRONMENT_VARIABLE = "AI_IMAGE_GAME_DATABASE_URL"
 DEFAULT_DATABASE_PATH = Path("data/research/ai-image-game.db")
 DEFAULT_DATABASE_URL = f"sqlite:///{DEFAULT_DATABASE_PATH.as_posix()}"
+SQLITE_BUSY_TIMEOUT_SECONDS = 30
+SQLITE_BUSY_TIMEOUT_MILLISECONDS = SQLITE_BUSY_TIMEOUT_SECONDS * 1_000
 
 
 def configured_database_url() -> str:
@@ -36,11 +38,16 @@ def ensure_sqlite_parent_directory(database_url: str) -> None:
 
 
 def create_database_engine(database_url: str) -> Engine:
-    """Create an engine and enable SQLite foreign-key enforcement."""
+    """Create an engine with safe defaults for concurrent SQLite requests."""
     url = make_url(database_url)
     is_sqlite = url.get_backend_name() == "sqlite"
     engine_arguments: dict[str, object] = {
-        "connect_args": {"check_same_thread": False} if is_sqlite else {}
+        "connect_args": {
+            "check_same_thread": False,
+            "timeout": SQLITE_BUSY_TIMEOUT_SECONDS,
+        }
+        if is_sqlite
+        else {}
     }
     if is_sqlite and url.database == ":memory:":
         engine_arguments["poolclass"] = StaticPool
@@ -49,12 +56,15 @@ def create_database_engine(database_url: str) -> Engine:
     if is_sqlite:
 
         @event.listens_for(database_engine, "connect")
-        def enable_sqlite_foreign_keys(
+        def configure_sqlite_connection(
             connection: sqlite3.Connection, connection_record: object
         ) -> None:
             del connection_record
             cursor = connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MILLISECONDS}")
+            if url.database != ":memory:":
+                cursor.execute("PRAGMA journal_mode=WAL")
             cursor.close()
 
     return database_engine

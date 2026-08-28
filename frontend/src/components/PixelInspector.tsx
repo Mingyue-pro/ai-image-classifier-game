@@ -325,6 +325,7 @@ export function PixelInspector({
   const isIntroductionMode = mode === 'introduction'
   const isPreviewMode = mode === 'preview'
   const isCropOnlyMode = isIntroductionMode || isPreviewMode
+  const hideOverview = isPreviewMode
   const isTeachingMode = mode === 'teaching'
   const isComparisonMode = mode === 'comparison' || isPreviewMode
   const isTwoStateMode = isCropOnlyMode || isTeachingMode || isComparisonMode
@@ -355,15 +356,15 @@ export function PixelInspector({
 
   return (
     <section className={`pixel-inspector ${showEnhancedDifference ? 'pixel-inspector--show-difference' : ''}`.trim()} aria-label={`Pixel Inspector for ${subject}`}>
-      {isCropOnlyMode ? <canvas ref={overviewRef} hidden aria-hidden="true" /> : null}
+      {hideOverview ? <canvas ref={overviewRef} hidden aria-hidden="true" /> : null}
       {isCropOnlyMode ? <canvas ref={differenceCropRef} hidden aria-hidden="true" /> : null}
-      {!isCropOnlyMode ? <>
+      {!hideOverview ? <>
       <div className="pixel-inspector__overview-module">
       <div className="pixel-inspector__heading">
         <div><ScanSearch size={20} /><strong>Pixel Inspector</strong></div>
         <dl>
           {showStrengthDetails ? <div><dt>Strength</dt><dd>{strength}/255</dd></div> : null}
-          <div><dt>Selected crop</dt><dd>{cropSize}×{cropSize} px · x={origin.x}–{origin.x + cropSize - 1}, y={origin.y}–{origin.y + cropSize - 1}</dd></div>
+          <div><dt>Selected region</dt><dd>{cropSize}×{cropSize} px · x={origin.x}–{origin.x + cropSize - 1}, y={origin.y}–{origin.y + cropSize - 1}</dd></div>
         </dl>
       </div>
       {showStrengthDetails ? <p className="pixel-inspector__strength-explanation"><strong>Strength: {strength}/255.</strong> {PIXEL_STRENGTH_EXPLANATION} It does not mean that {strength} pixels were changed.</p> : <p className="pixel-inspector__strength-explanation">This fixed Pixel modification makes small RGB adjustments across many pixels.</p>}
@@ -371,7 +372,7 @@ export function PixelInspector({
         <>
           <figure className="pixel-inspector__overview">
             <canvas ref={overviewRef} className={allowRegionSelection ? '' : 'is-fixed'} onClick={allowRegionSelection ? selectRegion : undefined} aria-label={allowRegionSelection ? overviewState === 'original' ? `Select Pixel inspection region for ${subject}` : `Select Pixel inspection region from ${overviewState === 'attacked' ? currentStateLabel : overviewState} for ${subject}` : `Fixed Pixel inspection region for ${subject}`} />
-            <figcaption><Crosshair size={16} />{allowRegionSelection ? <>This full image shows the {overviewState === 'attacked' ? currentStateLabel : overviewState} used to select a {cropSize}×{cropSize} region. Click it to inspect another location.</> : <>This full image shows the fixed {cropSize}×{cropSize} region used throughout Stage 2. The same coordinates are used before and after the selected Strength.</>}</figcaption>
+            <figcaption><Crosshair size={16} />{allowRegionSelection ? <>This full image shows the {overviewState === 'attacked' ? currentStateLabel : overviewState} used to select a {cropSize}×{cropSize} region. Click it to inspect another location.</> : <>This full image shows the fixed {cropSize}×{cropSize} region used for this comparison. The same coordinates are used before and after the Pixel modification.</>}</figcaption>
           </figure>
           {!images ? <p className="pixel-inspector__loading" role="status">Loading {beforeLabel} and {afterLabel} images…</p> : null}
         </>
@@ -380,24 +381,24 @@ export function PixelInspector({
           </> : null}
           {!error ? <>
           <div className="pixel-inspector__crop-section">
-          <div className="pixel-inspector__crop-header"><strong>{cropSize}×{cropSize} selected {isPreviewMode ? 'region' : 'crops'}</strong>{isTwoStateMode ? <div className="pixel-inspector__strength-comparison" aria-label={showStrengthDetails ? `${beforeLabel} strength ${observedStrength}/255, ${afterLabel.toLowerCase()} strength ${afterStateReady ? `${strength}/255` : 'not selected'}` : `${beforeLabel} and ${afterLabel.toLowerCase()} fixed Pixel states`}><span><small>{beforeLabel}</small><strong>{showStrengthDetails ? `${observedStrength}/255` : 'Before'}</strong></span><b>→</b><span><small>{afterLabel}</small><strong>{showStrengthDetails ? afterStateReady ? `${strength}/255` : 'Select Strength' : 'After'}</strong></span></div> : <div className="pixel-inspector__strength-comparison pixel-inspector__strength-comparison--three" aria-label={showOriginalStrength ? `Original strength ${observedStrength}/255, ${currentStateLabel === 'Initial (attacked)' ? 'initial attacked' : currentStateLabel} strength ${attackedStrength}/255, adjusted strength ${adjustedSelected ? `${strength}/255` : 'pending'}` : `Correct original reference, ${currentStateLabel === 'Initial (attacked)' ? 'initial attacked' : currentStateLabel} strength ${attackedStrength}/255, adjusted strength ${adjustedSelected ? `${strength}/255` : 'pending'}`}><span><small>Original</small><strong>{showOriginalStrength ? `${observedStrength}/255` : 'Correct reference'}</strong></span><b>→</b><span><small>{currentStateLabel}</small><strong>{attackedStrength}/255</strong></span><b>→</b><span><small>Adjusted</small><strong>{adjustedSelected ? `${strength}/255` : 'Pending'}</strong></span></div>}</div>
+          <div className="pixel-inspector__crop-header"><strong>{cropSize}×{cropSize} selected {isPreviewMode ? 'region' : 'regions'}</strong>{isTwoStateMode ? <div className="pixel-inspector__strength-comparison" aria-label={showStrengthDetails ? `${beforeLabel} strength ${observedStrength}/255, ${afterLabel.toLowerCase()} strength ${afterStateReady ? `${strength}/255` : 'not selected'}` : `${beforeLabel} and ${afterLabel.toLowerCase()} fixed Pixel states`}><span><small>{beforeLabel}</small><strong>{showStrengthDetails ? `${observedStrength}/255` : 'Before'}</strong></span><b>→</b><span><small>{afterLabel}</small><strong>{showStrengthDetails ? afterStateReady ? `${strength}/255` : 'Select Strength' : 'After'}</strong></span></div> : <div className="pixel-inspector__strength-comparison pixel-inspector__strength-comparison--three" aria-label={showOriginalStrength ? `Original strength ${observedStrength}/255, ${currentStateLabel === 'Initial (attacked)' ? 'initial attacked' : currentStateLabel} strength ${attackedStrength}/255, adjusted strength ${adjustedSelected ? `${strength}/255` : 'pending'}` : `Correct original reference, ${currentStateLabel === 'Initial (attacked)' ? 'initial attacked' : currentStateLabel} strength ${attackedStrength}/255, adjusted strength ${adjustedSelected ? `${strength}/255` : 'pending'}`}><span><small>Original</small><strong>{showOriginalStrength ? `${observedStrength}/255` : 'Correct reference'}</strong></span><b>→</b><span><small>{currentStateLabel}</small><strong>{attackedStrength}/255</strong></span><b>→</b><span><small>Adjusted</small><strong>{adjustedSelected ? `${strength}/255` : 'Pending'}</strong></span></div>}</div>
           {isPreviewMode ? <p className="pixel-inspector__fixed-region-note">The same fixed {cropSize}×{cropSize} region is shown before and after the selected Strength is applied.</p> : null}
           <div className={`pixel-inspector__crop-pair ${isTwoStateMode ? '' : 'pixel-inspector__crop-triplet'}`}>
           <section className="pixel-inspector__module" aria-labelledby="original-crop-heading">
-            <div><strong id="original-crop-heading">1. {beforeLabel} selected {isPreviewMode ? 'region' : 'crop'}</strong><p>The enlarged selected {isPreviewMode ? 'region' : 'crop'} before this adjustment. Each visible square comes from the same image location.</p></div>
-            <figure className="pixel-inspector__single-crop"><canvas ref={originalCropRef} aria-label={`${beforeLabel} ${cropSize} by ${cropSize} Pixel ${isPreviewMode ? 'region' : 'crop'}`} /></figure>
+            <div><strong id="original-crop-heading">1. {beforeLabel} selected region</strong><p>The enlarged selected region before this adjustment. Each visible square comes from the same image location.</p></div>
+            <figure className="pixel-inspector__single-crop"><canvas ref={originalCropRef} aria-label={`${beforeLabel} ${cropSize} by ${cropSize} Pixel region`} /></figure>
           </section>
           {!isTwoStateMode ? <section className="pixel-inspector__module" aria-labelledby="attacked-crop-heading">
-            <div><strong id="attacked-crop-heading">2. {currentStateLabel} selected crop</strong><p>The same coordinates in the current image state. Orange outlines mark visible RGB changes from Original.</p></div>
-            <figure className="pixel-inspector__single-crop"><canvas ref={attackedCropRef} aria-label={`${currentStateLabel === 'Initial (attacked)' ? 'Initial attacked' : currentStateLabel} ${cropSize} by ${cropSize} Pixel crop`} /></figure>
+            <div><strong id="attacked-crop-heading">2. {currentStateLabel} selected region</strong><p>The same coordinates in the current image state. Orange outlines mark visible RGB changes from Original.</p></div>
+            <figure className="pixel-inspector__single-crop"><canvas ref={attackedCropRef} aria-label={`${currentStateLabel === 'Initial (attacked)' ? 'Initial attacked' : currentStateLabel} ${cropSize} by ${cropSize} Pixel region`} /></figure>
           </section> : <canvas ref={attackedCropRef} hidden aria-hidden="true" />}
           <section className={`pixel-inspector__module ${afterStateReady && (isTeachingMode || adjustedSelected) ? '' : 'pixel-inspector__pending'}`} aria-labelledby="modified-crop-heading">
-            <div><strong id="modified-crop-heading">{isTwoStateMode ? `2. ${afterLabel} selected ${isPreviewMode ? 'region' : 'crop'}` : '3. Adjusted selected crop'}</strong><p>{isPreviewMode && !afterStateReady ? 'Choose a Strength to compare the selected region.' : isTwoStateMode ? 'The same coordinates after applying this Pixel Strength adjustment.' : adjustedSelected ? 'The same coordinates after the newly selected Strength adjustment.' : 'Select a new Pixel Strength to generate and display the adjusted crop.'}</p></div>
-            <figure className="pixel-inspector__single-crop">{afterStateReady && (isTwoStateMode || adjustedSelected) ? <canvas ref={modifiedCropRef} aria-label={`${isTwoStateMode ? afterLabel : 'Adjusted'} ${cropSize} by ${cropSize} Pixel ${isPreviewMode ? 'region' : 'crop'}`} /> : <div className="pixel-inspector__pending-box">Choose a Strength to compare the selected region.</div>}</figure>
+            <div><strong id="modified-crop-heading">{isTwoStateMode ? `2. ${afterLabel} selected region` : '3. Adjusted selected region'}</strong><p>{isPreviewMode && !afterStateReady ? 'Choose a Strength to compare the selected region.' : isTwoStateMode ? 'The same coordinates after applying this Pixel Strength adjustment.' : adjustedSelected ? 'The same coordinates after the newly selected Strength adjustment.' : 'Select a new Pixel Strength to generate and display the adjusted region.'}</p></div>
+            <figure className="pixel-inspector__single-crop">{afterStateReady && (isTwoStateMode || adjustedSelected) ? <canvas ref={modifiedCropRef} aria-label={`${isTwoStateMode ? afterLabel : 'Adjusted'} ${cropSize} by ${cropSize} Pixel region`} /> : <div className="pixel-inspector__pending-box">Choose a Strength to compare the selected region.</div>}</figure>
             {!afterStateReady || (!isTwoStateMode && !adjustedSelected) ? <canvas ref={modifiedCropRef} hidden aria-hidden="true" /> : null}
           </section>
           </div>
-          {!isCropOnlyMode ? <p className="pixel-inspector__grid-link">The outlined 8×8 area below is enlarged into the Pixel Grids. Both grids show the same coordinates before and after modification. The 32×32 crop contains 1,024 pixels, so displaying all of them as interactive cells and RGB values would make them too small to inspect clearly. The fixed central 8×8 area provides a readable sample; it is not treated as more important or more causal than other pixels.</p> : null}
+          {!isCropOnlyMode ? <p className="pixel-inspector__grid-link">The outlined 8×8 area below is enlarged into the Pixel Grids. Both grids show the same coordinates before and after modification. The 32×32 region contains 1,024 pixels, so displaying all of them as interactive cells and RGB values would make them too small to inspect clearly. The fixed central 8×8 area provides a readable sample; it is not treated as more important or more causal than other pixels.</p> : null}
           </div>
           {!isCropOnlyMode ? <>
           <div className="pixel-inspector__analysis-pair">

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from time import perf_counter
 from typing import Any
+from uuid import uuid4
 
 from PIL import Image, UnidentifiedImageError
 from torchvision.transforms import functional as vision_functional
@@ -120,9 +121,15 @@ class GameService:
         if not attempt.output_image_path:
             raise GameAssetError("Attempt does not have an output image")
         configured_path = attempt.output_image_path
-        candidate = (self.project_root / configured_path).resolve()
-        if candidate.is_relative_to(self.runtime_root):
-            return self._trusted_runtime_file(configured_path)
+        runtime_candidate = (self.runtime_root / configured_path).resolve()
+        if runtime_candidate.is_relative_to(self.runtime_root) and runtime_candidate.is_file():
+            return runtime_candidate
+
+        # Attempts created before runtime paths were stored relative to runtime_root
+        # may still contain a project-relative path such as data/runtime/....
+        legacy_candidate = (self.project_root / configured_path).resolve()
+        if legacy_candidate.is_relative_to(self.runtime_root) and legacy_candidate.is_file():
+            return legacy_candidate
 
         stage_run = self.repository.get_stage_run(stage_run_id)
         case = self.case_catalog.get_case(stage_run.case_id)
@@ -270,8 +277,7 @@ class GameService:
                 raise GameConflictError(
                     "Change at least one repair parameter before reclassifying"
                 )
-        attempt_number = stage_run.attempt_count + 1
-        output_path = self.runtime_root / stage_run_id / f"attempt-{attempt_number}.png"
+        output_path = self.runtime_root / stage_run_id / f"candidate-{uuid4()}.png"
 
         start_time = perf_counter()
         if attack_type == "patch":
@@ -300,7 +306,7 @@ class GameService:
             )
         ).label
         restored = initial_label != correct_label and correct
-        stored_path = output_path.relative_to(self.project_root).as_posix()
+        stored_path = output_path.relative_to(self.runtime_root).as_posix()
         attempt = self.repository.record_attempt(
             stage_run_id,
             tool_type=tool_type,
@@ -522,12 +528,6 @@ class GameService:
         path = (self.project_root / configured_path).resolve()
         if not path.is_relative_to(self.project_root) or not path.is_file():
             raise GameAssetError(f"Trusted project file does not exist: {configured_path}")
-        return path
-
-    def _trusted_runtime_file(self, configured_path: str) -> Path:
-        path = (self.project_root / configured_path).resolve()
-        if not path.is_relative_to(self.runtime_root) or not path.is_file():
-            raise GameAssetError("Runtime image does not exist")
         return path
 
     def _states(self, case: dict[str, Any]) -> list[dict[str, Any]]:

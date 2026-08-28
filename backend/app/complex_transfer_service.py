@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, cast
+from uuid import uuid4
 
 from PIL import Image
 
@@ -108,7 +109,7 @@ class ComplexTransferService:
         state = self._state(stage_run_id)
         factor = self._factor(selected_factor)
         after = self._parameters(submitted)
-        output_path = self.runtime_root / stage_run_id / f"attempt-{state.attempt_index + 1}.png"
+        output_path = self.runtime_root / stage_run_id / f"candidate-{uuid4()}.png"
         result = reclassify_complex_transfer(
             state,
             selected_factor=factor,
@@ -131,7 +132,7 @@ class ComplexTransferService:
             classification_changed=result.top1.label != state.current_classification.top1_label,
             correct_label_is_top1=result.top1.label.casefold() == EXPECTED_CLASS.casefold(),
             classification_restored=result.state.success,
-            output_image_path=output_path.relative_to(self.project_root).as_posix(),
+            output_image_path=output_path.relative_to(self.runtime_root).as_posix(),
         )
         if result.state.finished:
             self.repository.complete_stage_run(

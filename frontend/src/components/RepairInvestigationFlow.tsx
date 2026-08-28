@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sparkles, Wrench } from 'lucide-react'
 
 import { applyVerifiedFallback, completeStageRun, previewRuntimeImage, reclassifyRuntimeImage, resolveApiUrl, saveStageResponse } from '../api'
@@ -75,6 +75,7 @@ export function RepairInvestigationFlow({ cases, nextError, onStageComplete, onC
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionLock = useRef(false)
   const [error, setError] = useState<string | null>(null)
   const [navigationPrompt, setNavigationPrompt] = useState<string | null>(null)
   const [orderResult, setOrderResult] = useState<InvestigationOrderResult | null>(null)
@@ -125,7 +126,8 @@ export function RepairInvestigationFlow({ cases, nextError, onStageComplete, onC
   }
 
   async function runReclassification() {
-    if (isSubmitting || currentAttempt || parametersUnchanged || !direction) return
+    if (submissionLock.current || isSubmitting || currentAttempt || parametersUnchanged || !direction) return
+    submissionLock.current = true
     setIsSubmitting(true); setError(null); setNavigationPrompt(null)
     try {
       const action = await reclassifyRuntimeImage(selectedCase.stageRun.id, {
@@ -136,18 +138,19 @@ export function RepairInvestigationFlow({ cases, nextError, onStageComplete, onC
       const attempt: RepairAttempt = { method: selectedMethod, direction, prediction: direction, reason: '', parameters: { ...currentParameters }, action, fallback: false }
       setAttempts((current) => [...current, attempt]); setCurrentAttempt(attempt)
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'The repaired image could not be classified.') }
-    finally { setIsSubmitting(false) }
+    finally { submissionLock.current = false; setIsSubmitting(false) }
   }
 
   async function runFallback() {
-    if (isSubmitting) return
+    if (submissionLock.current || isSubmitting) return
+    submissionLock.current = true
     setIsSubmitting(true); setError(null)
     try {
       const action = await applyVerifiedFallback(selectedCase.stageRun.id)
       const attempt: RepairAttempt = { method: selectedMethod, direction: 'verified_fallback', prediction: 'verified_fallback_will_restore', reason: 'System-provided verified repair.', parameters: action.parameters as Record<string, number>, action, fallback: true }
       setAttempts((current) => [...current, attempt]); setCurrentAttempt(attempt); setPhase('fallback')
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'The verified fallback could not be applied.') }
-    finally { setIsSubmitting(false) }
+    finally { submissionLock.current = false; setIsSubmitting(false) }
   }
 
   function finishMethod() {

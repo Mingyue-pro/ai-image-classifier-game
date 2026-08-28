@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sparkles, Wrench } from 'lucide-react'
 
 import { applyVerifiedFallback, completeResearchSession, completeStageRun, previewRuntimeImage, reclassifyRuntimeImage, resolveApiUrl, saveStageResponse } from '../api'
@@ -62,6 +62,7 @@ export function TransferChallengeFlow({ cases, nextError, onStageComplete, onVie
   const [soleCause, setSoleCause] = useState('')
   const [otherFactors, setOtherFactors] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const reclassificationLock = useRef(false)
   const [error, setError] = useState<string | null>(null)
 
   const selectedMethod = currentMethod
@@ -126,7 +127,8 @@ export function TransferChallengeFlow({ cases, nextError, onStageComplete, onVie
   }
 
   async function runReclassification() {
-    if (currentAttempt || isSubmitting || parametersUnchanged) return
+    if (currentAttempt || reclassificationLock.current || isSubmitting || parametersUnchanged) return
+    reclassificationLock.current = true
     setIsSubmitting(true); setError(null)
     try {
       const direction = selectedMethod === 'Patch' ? patchDirection : 'adjust_pixel_strength'
@@ -134,7 +136,7 @@ export function TransferChallengeFlow({ cases, nextError, onStageComplete, onVie
       const attempt: RepairAttempt = { method: selectedMethod, direction, prediction: '', reason: '', parameters: { ...currentParameters }, action, fallback: false }
       setAttempts((current) => [...current, attempt]); setCurrentAttempt(attempt)
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'The image could not be reclassified.') }
-    finally { setIsSubmitting(false) }
+    finally { reclassificationLock.current = false; setIsSubmitting(false) }
   }
 
   async function continueAfterComparison() {

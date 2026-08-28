@@ -128,6 +128,7 @@ export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, atte
   const [newErrorStrategy, setNewErrorStrategy] = useState('')
   const [isSubmittingReflection, setIsSubmittingReflection] = useState(false)
   const [reflectionError, setReflectionError] = useState<string | null>(null)
+  const reclassificationLock = useRef(false)
   const reflectionSubmittingRef = useRef(false)
   const timingFactor: TimedTransferFactor = activeFactor || (phase === 'plan' && selectedFactor && selectedFactor !== 'not_sure' ? selectedFactor : null) || (phase === 'decide' && nextFactor ? nextFactor : null) || pendingManipulation?.selectedFactor || null
   const timingAttemptIndex = phase === 'compare' && reclassifyResult
@@ -180,12 +181,6 @@ export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, atte
         : false
 
   useEffect(() => {
-    if (phase === 'compare' || phase === 'decide') {
-      setDraftParameters(currentParameters)
-    }
-  }, [currentParameters, phase])
-
-  useEffect(() => {
     if (phase !== 'manipulate' || !activeFactor || !parametersChanged || !onPreview) {
       return
     }
@@ -216,7 +211,8 @@ export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, atte
   }
 
   async function runReclassification() {
-    if (!pendingManipulation || !confirmedPlan || !onReclassify || isReclassifying) return
+    if (!pendingManipulation || !confirmedPlan || !onReclassify || reclassificationLock.current || isReclassifying) return
+    reclassificationLock.current = true
     setIsReclassifying(true)
     setReclassifyError(null)
     try {
@@ -225,6 +221,7 @@ export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, atte
     } catch (caught) {
       setReclassifyError(caught instanceof Error ? caught.message : 'The image could not be reclassified.')
     } finally {
+      reclassificationLock.current = false
       setIsReclassifying(false)
     }
   }
@@ -258,6 +255,7 @@ export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, atte
   }
 
   function beginNextDecision() {
+    setDraftParameters(currentParameters)
     setNextFactor('')
     setPrediction('')
     setReason('')

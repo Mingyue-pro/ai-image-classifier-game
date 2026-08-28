@@ -267,7 +267,9 @@ def test_game_api_hides_fixed_outcome_then_records_selected_result(
 def test_runtime_patch_and_fgsm_use_server_results_and_save_attempts(
     tmp_path: Path,
 ) -> None:
-    matrix_path = write_test_assets(tmp_path)
+    project_root = tmp_path / "project"
+    runtime_root = tmp_path / "persistent-runtime"
+    matrix_path = write_test_assets(project_root)
     database_engine = create_database_engine(f"sqlite:///{tmp_path / 'runtime.db'}")
     initialize_database(database_engine)
     session_factory = create_session_factory(database_engine)
@@ -283,8 +285,8 @@ def test_runtime_patch_and_fgsm_use_server_results_and_save_attempts(
             CaseCatalog(matrix_path),
             repository,
             FakeClassifier(["traffic light", "ice cream"]),
-            tmp_path,
-            tmp_path / "data" / "runtime",
+            project_root,
+            runtime_root,
         )
         app.dependency_overrides[get_game_service] = lambda: service
         try:
@@ -375,6 +377,7 @@ def test_runtime_patch_and_fgsm_use_server_results_and_save_attempts(
             attempts = database_session.scalars(select(Attempt)).all()
             assert len(attempts) == 2
             assert all(attempt.output_image_path for attempt in attempts)
+            assert all(not Path(attempt.output_image_path).is_absolute() for attempt in attempts)
             assert attempts[0].top1_after == "traffic light"
         finally:
             app.dependency_overrides.clear()

@@ -23,7 +23,7 @@ describe('shared FIN-02 Pixel learning content', () => {
 
   test('centralises reclassification, summary and Enhanced Difference guidance', () => {
     const { rerender } = render(<><PixelReclassifyConnection /><PixelLearningSummary /><EnhancedDifferenceExplanation /></>)
-    expect(screen.getByLabelText('Why reclassify the image?')).toHaveTextContent('reclassification tests whether that change affected the AI’s prediction')
+    expect(screen.getByLabelText('Why reclassify the image?')).toHaveTextContent("reclassification tests whether that change affected the AI image classifier's prediction")
     expect(screen.getByLabelText('Why reclassify the image?')).not.toHaveTextContent('Finding RGB differences')
     expect(screen.getByText(/cannot be assumed/i)).toBeInTheDocument()
     expect(screen.getByText(/not the image sent to the classifier/i)).toBeInTheDocument()

@@ -40,7 +40,7 @@ test('shows neutral Observe evidence without revealing the three-factor case con
   expect(screen.getByRole('img', { name: 'New Transfer image showing ice cream' })).toHaveAttribute('src', '/complex-transfer.png')
   expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('toaster')
   expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('True classice cream')
-  expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent("AI's current main classification judgementDoes not match true class")
+  expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('Classification StatusDoes not match true class')
   expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('Investigation limitUp to 5 valid attempts')
   expect(screen.queryByText(/Complex Transfer · Observe/)).not.toBeInTheDocument()
   expect(screen.queryByText(/Patch \+ Pixel \+ Blur/i)).not.toBeInTheDocument()
@@ -367,10 +367,10 @@ test('uses the refreshed backend state when a second Attempt changes another fac
   expect(pixelInspector).not.toHaveAttribute('open')
   await user.click(screen.getByText('Inspect pixel-level differences'))
   expect(pixelInspector).toHaveAttribute('open')
-  expect(screen.getByText('1. Pre-round cumulative state selected crop')).toBeInTheDocument()
-  expect(screen.getByText('2. Post-round state selected crop')).toBeInTheDocument()
+  expect(screen.getByText('1. Pre-round cumulative state selected region')).toBeInTheDocument()
+  expect(screen.getByText('2. Post-round state selected region')).toBeInTheDocument()
   expect(screen.getByText('Enhanced Difference · Same 8×8 Region')).toBeInTheDocument()
-  expect(screen.queryByText('1. Original selected crop')).not.toBeInTheDocument()
+  expect(screen.queryByText('1. Original selected region')).not.toBeInTheDocument()
 
   expect(onReclassify).toHaveBeenNthCalledWith(2, expect.objectContaining({
     selectedFactor: 'pixel',

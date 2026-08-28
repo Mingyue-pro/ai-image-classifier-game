@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Eye, ScanSearch, Sparkles } from 'lucide-react'
 
 import { applyFixedChoice, completeStageRun, resolveApiUrl, saveStageResponse } from '../api'
@@ -38,6 +38,7 @@ export function StageOneFlow({ cases, isMovingNext, nextError, priorSummaries, o
   const [results, setResults] = useState<RecordedTest[]>([])
   const [reflectionChoice, setReflectionChoice] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionLock = useRef(false)
   const [reclassifyPrompt, setReclassifyPrompt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [completedCases, setCompletedCases] = useState<ActiveStage[] | null>(null)
@@ -58,14 +59,15 @@ export function StageOneFlow({ cases, isMovingNext, nextError, priorSummaries, o
   }
 
   async function reclassify() {
-    if (!prediction || !selectedState || isSubmitting) return
+    if (!prediction || !selectedState || submissionLock.current || isSubmitting) return
+    submissionLock.current = true
     setIsSubmitting(true); setError(null); setReclassifyPrompt(null)
     try {
       const action = await applyFixedChoice(stageRun.id, { state_id: selectedState.state_id, predicted_outcome: prediction })
       setResult(action); setResults((current) => [...current, { action, prediction, method: methodName, beforeLabel: playerCase.initial_top1.label }])
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The verified result could not be loaded. Please retry.')
-    } finally { setIsSubmitting(false) }
+    } finally { submissionLock.current = false; setIsSubmitting(false) }
   }
 
   const methodSummaries: StageOneSummary[] = results.map(({ action, prediction: recordedPrediction, method, beforeLabel }) => ({
@@ -139,10 +141,10 @@ export function StageOneFlow({ cases, isMovingNext, nextError, priorSummaries, o
       </> : null}
 
       {phase === 'manipulate' && selectedState ? <>
-        <PanelTitle label="Manipulate" title="Apply the fixed modification" description={methodName === 'Pixel' ? `${PIXEL_INTRODUCTION_EXPLANATION} Apply it, then inspect the two selected crops before revealing the observation note.` : 'Select Apply to view the fixed Patch. The classification remains hidden.'} />
+        <PanelTitle label="Manipulate" title="Apply the fixed modification" description={methodName === 'Pixel' ? `${PIXEL_INTRODUCTION_EXPLANATION} Apply it, then inspect the two selected regions before revealing the observation note.` : 'Select Apply to view the fixed Patch. The classification remains hidden.'} />
         {methodName === 'Pixel' && applied ? <>
           <ImagePreviewCard title="Modified image preview" imageUrl={resolveApiUrl(selectedState.image_url)} alt={`Modified ${playerCase.subject} preview`} details={<span>Fixed Pixel modification · classification still hidden</span>} />
-          <PixelInspector mode="introduction" showStrengthDetails={false} originalUrl={resolveApiUrl(playerCase.initial_image_url)} modifiedUrl={resolveApiUrl(selectedState.image_url)} subject={playerCase.subject} strength={Number(selectedState.parameters.epsilon_pixels ?? 0)} />
+          <PixelInspector mode="introduction" showStrengthDetails={false} allowRegionSelection={false} originalUrl={resolveApiUrl(playerCase.initial_image_url)} modifiedUrl={resolveApiUrl(selectedState.image_url)} subject={playerCase.subject} strength={Number(selectedState.parameters.epsilon_pixels ?? 0)} />
           <section className="stage-two-pixel-action-prompt" aria-label="Next: reclassify the Pixel modification"><strong>The changes may still be difficult to see.</strong><p>You have chosen a Pixel modification and previewed the modified image. <strong>Next, reclassify the image to test your prediction.</strong></p></section>
         </> : <div className="manipulation-preview"><img src={resolveApiUrl(applied ? selectedState.image_url : playerCase.initial_image_url)} alt={applied ? `Modified ${playerCase.subject} preview` : `Original ${playerCase.subject}`} /></div>}
         <div className="stage-navigation"><button className="secondary-button" type="button" onClick={() => setPhase('predict')}>Back to Predict</button>{applied ? <button className="primary-button" type="button" onClick={() => setPhase('reclassify')}>Continue to Reclassify</button> : <button className="primary-button" type="button" onClick={() => setApplied(true)}>Apply change</button>}</div>
@@ -158,7 +160,7 @@ export function StageOneFlow({ cases, isMovingNext, nextError, priorSummaries, o
       {phase === 'compare' && result ? <>
         <PanelTitle label="Compare" title="Compare your prediction with the evidence" description="A changed or unchanged classification is a valid observation." />
         <section className="comparison-evidence" aria-label="Before and after image classification evidence"><div><ImagePreviewCard title="Before modification" imageUrl={resolveApiUrl(playerCase.initial_image_url)} alt={`Original ${playerCase.subject} before modification`} /><ClassificationResultCard title="Before classification" prediction={playerCase.initial_top1} correctLabel={playerCase.correct_label} /></div><div><ImagePreviewCard title="After modification" imageUrl={resolveApiUrl(result.image_url)} alt={`Modified ${playerCase.subject} after modification`} /><ClassificationResultCard title="After classification" prediction={result.top1} correctLabel={playerCase.correct_label} /></div></section>
-        {methodName === 'Pixel' ? <><PixelInspector mode="introduction" showStrengthDetails={false} originalUrl={resolveApiUrl(playerCase.initial_image_url)} modifiedUrl={resolveApiUrl(result.image_url)} subject={playerCase.subject} strength={Number(selectedState?.parameters.epsilon_pixels ?? 0)} /><div className="pixel-stage-one-conclusion"><PixelSubtleObservation /></div></> : null}
+        {methodName === 'Pixel' ? <><PixelInspector mode="introduction" showStrengthDetails={false} allowRegionSelection={false} originalUrl={resolveApiUrl(playerCase.initial_image_url)} modifiedUrl={resolveApiUrl(result.image_url)} subject={playerCase.subject} strength={Number(selectedState?.parameters.epsilon_pixels ?? 0)} /><div className="pixel-stage-one-conclusion"><PixelSubtleObservation /></div></> : null}
         <dl className="comparison-facts"><div><dt>Modification</dt><dd>Fixed {methodName} modification</dd></div><div><dt>Your prediction</dt><dd>{prediction.replaceAll('_', ' ')}</dd></div><div><dt>Actual result</dt><dd>{result.classification_changed ? "The AI's main judgement changed" : "The AI's main judgement did not change"}</dd></div></dl>
         <p className={`prediction-feedback ${predictionMatched ? 'prediction-feedback--match' : ''}`}>{prediction === 'uncertain' ? 'You selected “Not sure”; this result gives you new evidence.' : predictionMatched ? 'Prediction correct — it matched this result.' : 'Prediction incorrect — use this result as evidence for the next case.'}</p>
         <div className="stage-navigation stage-navigation--end"><button className="primary-button" type="button" onClick={startNextTest}>{results.length >= 4 ? 'Continue to Summary' : 'Return to Select Change'}</button></div>
