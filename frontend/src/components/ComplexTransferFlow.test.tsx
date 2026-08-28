@@ -367,10 +367,10 @@ test('uses the refreshed backend state when a second Attempt changes another fac
   expect(pixelInspector).not.toHaveAttribute('open')
   await user.click(screen.getByText('Inspect pixel-level differences'))
   expect(pixelInspector).toHaveAttribute('open')
-  expect(screen.getByText('1. Pre-round cumulative state selected crop')).toBeInTheDocument()
-  expect(screen.getByText('2. Post-round state selected crop')).toBeInTheDocument()
+  expect(screen.getByText('1. Pre-round cumulative state selected region')).toBeInTheDocument()
+  expect(screen.getByText('2. Post-round state selected region')).toBeInTheDocument()
   expect(screen.getByText('Enhanced Difference · Same 8×8 Region')).toBeInTheDocument()
-  expect(screen.queryByText('1. Original selected crop')).not.toBeInTheDocument()
+  expect(screen.queryByText('1. Original selected region')).not.toBeInTheDocument()
 
   expect(onReclassify).toHaveBeenNthCalledWith(2, expect.objectContaining({
     selectedFactor: 'pixel',

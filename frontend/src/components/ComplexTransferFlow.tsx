@@ -180,12 +180,6 @@ export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, atte
         : false
 
   useEffect(() => {
-    if (phase === 'compare' || phase === 'decide') {
-      setDraftParameters(currentParameters)
-    }
-  }, [currentParameters, phase])
-
-  useEffect(() => {
     if (phase !== 'manipulate' || !activeFactor || !parametersChanged || !onPreview) {
       return
     }
@@ -258,6 +252,7 @@ export function ComplexTransferFlow({ imageUrl, subject, currentPrediction, atte
   }
 
   function beginNextDecision() {
+    setDraftParameters(currentParameters)
     setNextFactor('')
     setPrediction('')
     setReason('')

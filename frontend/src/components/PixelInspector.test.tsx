@@ -78,17 +78,17 @@ describe('PixelInspector', () => {
     vi.unstubAllGlobals()
   })
 
-  test('draws three pixelated crops and keeps edge clicks inside the image', async () => {
+  test('draws three pixelated regions and keeps edge clicks inside the image', async () => {
     render(<PixelInspector originalUrl="original.png" modifiedUrl="modified.png" subject="strawberry" strength={4} showOriginalStrength />)
 
-    const originalCrop = await screen.findByLabelText('Original 32 by 32 Pixel crop')
+    const originalCrop = await screen.findByLabelText('Original 32 by 32 Pixel region')
     await waitFor(() => expect(originalCrop).toHaveAttribute('width', '320'))
-    expect(screen.getByLabelText('Initial attacked 32 by 32 Pixel crop')).toHaveAttribute('height', '320')
-    expect(screen.getByLabelText('Adjusted 32 by 32 Pixel crop')).toHaveAttribute('height', '320')
-    expect(screen.getByText('32×32 selected crops')).toBeInTheDocument()
-    expect(screen.getByText('1. Original selected crop')).toBeInTheDocument()
-    expect(screen.getByText('2. Initial (attacked) selected crop')).toBeInTheDocument()
-    expect(screen.getByText('3. Adjusted selected crop')).toBeInTheDocument()
+    expect(screen.getByLabelText('Initial attacked 32 by 32 Pixel region')).toHaveAttribute('height', '320')
+    expect(screen.getByLabelText('Adjusted 32 by 32 Pixel region')).toHaveAttribute('height', '320')
+    expect(screen.getByText('32×32 selected regions')).toBeInTheDocument()
+    expect(screen.getByText('1. Original selected region')).toBeInTheDocument()
+    expect(screen.getByText('2. Initial (attacked) selected region')).toBeInTheDocument()
+    expect(screen.getByText('3. Adjusted selected region')).toBeInTheDocument()
     expect(screen.getByText('Enhanced Difference · Same 8×8 Region')).toBeInTheDocument()
     expect(screen.getByLabelText('Three Stage 3 Enhanced Difference comparisons')).toBeInTheDocument()
     expect(screen.getByText('1. Original ↔ Initial (attacked)')).toBeInTheDocument()
@@ -98,7 +98,7 @@ describe('PixelInspector', () => {
     expect(screen.getByText('3. Original ↔ Adjusted')).toBeInTheDocument()
     expect(screen.getByText('Difference remaining after repair')).toBeInTheDocument()
     expect(screen.getByText(/outlined 8×8 area below is enlarged into the Pixel Grids/)).toBeInTheDocument()
-    expect(screen.getByText(/outlined 8×8 area below.*32×32 crop contains 1,024 pixels/)).toBeInTheDocument()
+    expect(screen.getByText(/outlined 8×8 area below.*32×32 region contains 1,024 pixels/)).toBeInTheDocument()
     expect(await screen.findByLabelText('Selected pixel RGB value change chart')).toBeInTheDocument()
     expect(screen.getByLabelText(/Enhanced difference from Initial \(attacked\) to Adjusted for the same 8 by 8 Pixel region/)).toBeInTheDocument()
     expect(screen.getByLabelText(/Enhanced difference from Original to Initial \(attacked\) for the same 8 by 8 Pixel region/)).toBeInTheDocument()
@@ -173,22 +173,24 @@ describe('PixelInspector', () => {
   test('uses the original two-state comparison in teaching mode', async () => {
     render(<PixelInspector mode="teaching" originalUrl="original.png" modifiedUrl="modified.png" subject="strawberry" strength={4} />)
 
-    expect(await screen.findByLabelText('Original 32 by 32 Pixel crop')).toBeInTheDocument()
-    expect(screen.getByLabelText('Modified 32 by 32 Pixel crop')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Initial attacked 32 by 32 Pixel crop')).not.toBeInTheDocument()
-    expect(screen.getByText('2. Modified selected crop')).toBeInTheDocument()
-    expect(screen.queryByText('3. Adjusted selected crop')).not.toBeInTheDocument()
+    expect(await screen.findByLabelText('Original 32 by 32 Pixel region')).toBeInTheDocument()
+    expect(screen.getByLabelText('Modified 32 by 32 Pixel region')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Initial attacked 32 by 32 Pixel region')).not.toBeInTheDocument()
+    expect(screen.getByText('2. Modified selected region')).toBeInTheDocument()
+    expect(screen.queryByText('3. Adjusted selected region')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Original strength 0/255, modified strength 4/255')).toBeInTheDocument()
     expect(await screen.findByRole('grid', { name: 'Modified Pixel Grid' })).toBeInTheDocument()
     expect(screen.queryByRole('grid', { name: 'Initial attacked Pixel Grid' })).not.toBeInTheDocument()
     expect(screen.getByText('Selected pixel RGB values: Original → Modified')).toBeInTheDocument()
   })
 
-  test('limits the Stage 1 introduction to the 32 by 32 Before and After crops', async () => {
-    render(<PixelInspector mode="introduction" originalUrl="original.png" modifiedUrl="modified.png" subject="strawberry" strength={4} />)
+  test('shows the fixed Stage 1 location while limiting analysis to the 32 by 32 Before and After regions', async () => {
+    render(<PixelInspector mode="introduction" allowRegionSelection={false} originalUrl="original.png" modifiedUrl="modified.png" subject="strawberry" strength={4} />)
 
-    expect(await screen.findByLabelText('Original 32 by 32 Pixel crop')).toBeInTheDocument()
-    expect(screen.getByLabelText('Modified 32 by 32 Pixel crop')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Original 32 by 32 Pixel region')).toBeInTheDocument()
+    expect(screen.getByLabelText('Modified 32 by 32 Pixel region')).toBeInTheDocument()
+    expect(screen.getByLabelText('Fixed Pixel inspection region for strawberry')).toBeInTheDocument()
+    expect(screen.getByText(/fixed 32×32 region used for this comparison/)).toBeInTheDocument()
     expect(screen.queryByText('Enhanced Difference')).not.toBeInTheDocument()
     expect(screen.queryByRole('grid', { name: 'Original Pixel Grid' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Selected pixel RGB value change chart')).not.toBeInTheDocument()
