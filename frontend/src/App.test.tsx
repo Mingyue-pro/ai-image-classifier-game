@@ -474,7 +474,7 @@ describe('App anonymous session onboarding', () => {
     expect(window.location.pathname).toBe('/guided-discovery')
     expect(screen.getByText(/Complete four fixed investigations/)).toBeInTheDocument()
     expect(screen.getByText('Baseline classification')).toBeInTheDocument()
-    expect(screen.getByText('AI confidence score:').parentElement).toHaveTextContent('90.0%')
+    expect(screen.getByText('Classification confidence:').parentElement).toHaveTextContent('90.0%')
     await user.click(screen.getByRole('button', { name: 'Continue to Select Change' }))
     const patchButtons = [screen.getByRole('button', { name: /Small Patch/i }), screen.getByRole('button', { name: /Large Patch/i })]
     const pixelButtons = [screen.getByRole('button', { name: /Low-strength Pixel change/i }), screen.getByRole('button', { name: /High-strength Pixel change/i })]

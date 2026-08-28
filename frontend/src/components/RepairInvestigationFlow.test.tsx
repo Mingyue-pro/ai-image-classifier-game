@@ -130,6 +130,47 @@ describe('RepairInvestigationFlow', () => {
     expect(screen.getByText(/Current Patch size: 35%/)).toBeInTheDocument()
   })
 
+  test('submits only one reclassification when the button is triggered twice immediately', async () => {
+    let resolveReclassification!: (response: Response) => void
+    const pendingReclassification = new Promise<Response>((resolve) => { resolveReclassification = resolve })
+    const fetchMock = vi.fn().mockImplementation((input: string | URL) => {
+      const url = input.toString()
+      if (url.endsWith('/preview')) {
+        return Promise.resolve(new Response(JSON.stringify({ image_url: '/preview.png', parameters: {} }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      }
+      if (url.endsWith('/reclassify')) return pendingReclassification
+      return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    render(<RepairInvestigationFlow cases={[repairCase('patch'), repairCase('fgsm')]} nextError={null} onStageComplete={vi.fn()} onContinue={vi.fn()} isMovingNext={false} />)
+
+    await user.click(screen.getByRole('button', { name: 'Predict a repair direction' }))
+    await user.click(screen.getByRole('radio', { name: 'Adjust the Patch size' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Manipulate' }))
+    await user.click(screen.getByRole('button', { name: '10%' }))
+    await user.click(screen.getByRole('button', { name: 'Continue to Reclassify' }))
+
+    const reclassifyButton = screen.getByRole('button', { name: 'Reclassify image' })
+    fireEvent.click(reclassifyButton)
+    fireEvent.click(reclassifyButton)
+
+    expect(fetchMock.mock.calls.filter(([url]) => url.toString().endsWith('/reclassify'))).toHaveLength(1)
+
+    resolveReclassification(new Response(JSON.stringify({
+      attempt_number: 1,
+      image_url: '/game/stage-runs/run-patch/attempts/1/image',
+      top1: { label: 'traffic light', probability: 0.9, class_index: 920 },
+      top5: [{ label: 'traffic light', probability: 0.9, class_index: 920 }],
+      parameters: { position_x: 0.4, position_y: 0.5, size_fraction: 0.1 },
+      classification_changed: true,
+      correct_label_is_top1: true,
+      classification_restored: true,
+      attempts_remaining: 2,
+    }), { status: 201, headers: { 'Content-Type': 'application/json' } }))
+    expect((await screen.findAllByText('traffic light')).length).toBeGreaterThanOrEqual(2)
+  })
+
   test('uses a fixed-baseline Pixel preview with compact help and previous evidence', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ image_url: '/preview.png', parameters: { epsilon_pixels: 2 } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
     vi.stubGlobal('fetch', fetchMock)

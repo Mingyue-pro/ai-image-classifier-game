@@ -40,7 +40,7 @@ test('shows neutral Observe evidence without revealing the three-factor case con
   expect(screen.getByRole('img', { name: 'New Transfer image showing ice cream' })).toHaveAttribute('src', '/complex-transfer.png')
   expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('toaster')
   expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('True classice cream')
-  expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent("AI's current main classification judgementDoes not match true class")
+  expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('Classification StatusDoes not match true class')
   expect(screen.getByRole('region', { name: 'Starting classification' })).toHaveTextContent('Investigation limitUp to 5 valid attempts')
   expect(screen.queryByText(/Complex Transfer · Observe/)).not.toBeInTheDocument()
   expect(screen.queryByText(/Patch \+ Pixel \+ Blur/i)).not.toBeInTheDocument()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import case, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -231,8 +231,23 @@ class ResearchRepository:
         inference_duration_ms: float | None = None,
     ) -> Attempt:
         """Save one submitted manipulation and increment its Stage attempt count."""
-        stage_run = self._require_stage_run(stage_run_id)
-        attempt_number = stage_run.attempt_count + 1
+        self._require_stage_run(stage_run_id)
+        attempt_number = self.database_session.execute(
+            update(StageRun)
+            .where(StageRun.id == stage_run_id)
+            .values(
+                attempt_count=StageRun.attempt_count + 1,
+                final_top1_label=top1_after,
+                classification_restored=classification_restored,
+                success=case(
+                    (classification_restored, True),
+                    (StageRun.success.is_(None), False),
+                    else_=StageRun.success,
+                ),
+            )
+            .returning(StageRun.attempt_count)
+            .execution_options(synchronize_session=False)
+        ).scalar_one()
         attempt = Attempt(
             stage_run_id=stage_run_id,
             attempt_number=attempt_number,
@@ -250,13 +265,6 @@ class ResearchRepository:
             output_image_path=output_image_path,
             inference_duration_ms=inference_duration_ms,
         )
-        stage_run.attempt_count = attempt_number
-        stage_run.final_top1_label = top1_after
-        stage_run.classification_restored = classification_restored
-        if classification_restored:
-            stage_run.success = True
-        elif stage_run.success is None:
-            stage_run.success = False
         self.database_session.add(attempt)
         return self._commit_and_refresh(attempt)
 

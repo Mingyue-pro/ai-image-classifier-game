@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from time import perf_counter
 from typing import Any
+from uuid import uuid4
 
 from PIL import Image, UnidentifiedImageError
 from torchvision.transforms import functional as vision_functional
@@ -276,8 +277,7 @@ class GameService:
                 raise GameConflictError(
                     "Change at least one repair parameter before reclassifying"
                 )
-        attempt_number = stage_run.attempt_count + 1
-        output_path = self.runtime_root / stage_run_id / f"attempt-{attempt_number}.png"
+        output_path = self.runtime_root / stage_run_id / f"candidate-{uuid4()}.png"
 
         start_time = perf_counter()
         if attack_type == "patch":

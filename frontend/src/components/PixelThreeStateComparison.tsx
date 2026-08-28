@@ -110,7 +110,7 @@ function pixels(data: ImageData): Rgb[] {
 }
 
 function OriginalClassification({ correctLabel }: { correctLabel: string }) {
-  return <section className="classification-card" aria-label="Original classification"><div className="card-heading"><strong>Original classification</strong><span className="status-badge status-badge--success">Correct</span></div><p className="result-label">{correctLabel}</p><dl><div><dt>True class</dt><dd>{correctLabel}</dd></div><div><dt>AI's current main classification judgement</dt><dd>Matches true class before attack</dd></div></dl></section>
+  return <section className="classification-card" aria-label="Original classification"><div className="card-heading"><strong>Original classification</strong><span className="status-badge status-badge--success">Correct</span></div><p className="result-label">{correctLabel}</p><dl><div><dt>True class</dt><dd>{correctLabel}</dd></div><div><dt>Classification Status</dt><dd>Matches true class before attack</dd></div></dl></section>
 }
 
 export function PixelThreeStateComparison(props: Props) {

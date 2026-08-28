@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -116,6 +117,61 @@ def test_repository_records_complete_stage_and_session_flow(
     saved_stage = database_session.scalar(select(StageRun))
     assert saved_stage is not None
     assert saved_stage.final_top1_label == "traffic light"
+
+
+def test_repository_allocates_distinct_attempt_numbers_concurrently(
+    tmp_path: Path,
+) -> None:
+    database_engine = create_database_engine(f"sqlite:///{tmp_path / 'concurrent-attempts.db'}")
+    initialize_database(database_engine)
+    session_factory = create_session_factory(database_engine)
+
+    with session_factory() as database_session:
+        setup_repository = ResearchRepository(database_session)
+        participant = setup_repository.create_participant("P-CONCURRENT")
+        research_session = setup_repository.create_session(
+            participant.id,
+            game_version="mvp-formative-1",
+        )
+        stage_run = setup_repository.start_stage_run(
+            research_session.id,
+            case_id="stage3-trafficlight-pixel",
+            stage="stage3",
+            attack_type="fgsm",
+        )
+        stage_run_id = stage_run.id
+
+    def record(strength: float) -> int:
+        with session_factory() as database_session:
+            attempt = ResearchRepository(database_session).record_attempt(
+                stage_run_id,
+                tool_type="change_epsilon",
+                parameters_after={"epsilon_pixels": strength},
+                top1_after="traffic light",
+                classification_changed=True,
+                correct_label_is_top1=True,
+                classification_restored=True,
+            )
+            return attempt.attempt_number
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        attempt_numbers = sorted(executor.map(record, [0.5, 1.0]))
+
+    with session_factory() as database_session:
+        saved_stage = database_session.get(StageRun, stage_run_id)
+        saved_numbers = list(
+            database_session.scalars(
+                select(Attempt.attempt_number)
+                .where(Attempt.stage_run_id == stage_run_id)
+                .order_by(Attempt.attempt_number)
+            )
+        )
+
+    assert attempt_numbers == [1, 2]
+    assert saved_numbers == [1, 2]
+    assert saved_stage is not None
+    assert saved_stage.attempt_count == 2
+    database_engine.dispose()
 
 
 def test_repository_rolls_back_duplicate_participant_code(

@@ -37,7 +37,7 @@ describe('PixelCompareEvidence', () => {
   test('can hide repeated confidence guidance in the Stage 3 three-state comparison', () => {
     render(<PixelCompareEvidence beforeImageUrl="before.png" beforeStrength={4} beforePrediction={{ label: 'flagpole', probability: 0.25, class_index: 1 }} afterImageUrl="after.png" afterStrength={1} afterPrediction={{ label: 'traffic light', probability: 0.58, class_index: 2 }} correctLabel="traffic light" subject="traffic light" classificationRestored showConfidenceExplanation={false} />)
 
-    expect(screen.getAllByText('AI confidence score:')).toHaveLength(2)
+    expect(screen.getAllByText('Classification confidence:')).toHaveLength(2)
     expect(screen.queryByText(/This shows how strongly the model favours/)).not.toBeInTheDocument()
   })
 })

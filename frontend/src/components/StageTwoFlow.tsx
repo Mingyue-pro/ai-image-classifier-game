@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Move, Sparkles } from 'lucide-react'
 
@@ -81,6 +81,7 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
   const [pixelSelectionError, setPixelSelectionError] = useState<string | null>(null)
   const [isPreviewing, setIsPreviewing] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionLock = useRef(false)
   const [reclassifyPrompt, setReclassifyPrompt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -195,7 +196,8 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
   }
 
   async function reclassify() {
-    if (!prediction || cannotPredict || isSubmitting) return
+    if (!prediction || cannotPredict || submissionLock.current || isSubmitting) return
+    submissionLock.current = true
     setIsSubmitting(true); setError(null); setReclassifyPrompt(null)
     try {
       const action = await reclassifyRuntimeImage(selectedCase.stageRun.id, {
@@ -207,7 +209,7 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
       setAttempts((current) => [...current, attempt]); setCurrentAttempt(attempt)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The image could not be reclassified.')
-    } finally { setIsSubmitting(false) }
+    } finally { submissionLock.current = false; setIsSubmitting(false) }
   }
 
   function continueAfterResult() {
@@ -331,7 +333,7 @@ export function StageTwoFlow({ cases, nextError, onStageComplete, onContinue, is
     </> : null}
 
     {phase === 'reclassify' ? <>
-      <PanelTitle label="Reclassify" title={currentAttempt ? 'New classification result' : 'Run the selected parameter experiment'} description={currentAttempt ? 'Review this result before returning to the tools or continuing to Compare.' : 'The server will generate this parameter state and classify it with ResNet-34.'} />
+      <PanelTitle label="Reclassify" title={currentAttempt ? 'New classification result' : 'Run the selected parameter experiment'} description={currentAttempt ? 'Review this result before returning to the tools or continuing to Compare.' : 'Reclassify the selected parameter state to reveal the result.'} />
       {selectedMethod === 'Pixel' ? <PixelReclassifyConnection /> : null}
       <div className="reclassify-action-layout"><div><ImagePreviewCard title="Before reclassification" imageUrl={resolveApiUrl(currentAttempt?.action.image_url ?? previewUrl ?? selectedCase.playerCase.initial_image_url)} alt={`${selectedMethod} modified ${selectedCase.playerCase.subject} ready for reclassification`} details={<span>{parameterSummary(currentParameters)}</span>} /></div><div className="reclassify-center-action"><span>Send modified image to classifier</span><button className="primary-button" type="button" disabled={isSubmitting || currentAttempt !== null} onClick={() => void reclassify()}>{isSubmitting ? 'Reclassifying…' : currentAttempt ? 'Reclassified' : 'Reclassify image'}</button></div><ClassificationResultCard title="After reclassification" prediction={currentAttempt?.action.top1} correctLabel={selectedCase.playerCase.correct_label} reveal={currentAttempt !== null} /></div>
       {currentAttempt && !methodReady(selectedMethod) ? <p className="exploration-hint">{currentAttempt.action.correct_label_is_top1 ? 'This setting still produced the correct classification. Try another parameter combination—another result may be possible.' : 'This setting produced an incorrect classification. Try another parameter combination to see whether the correct result can be preserved.'}</p> : null}

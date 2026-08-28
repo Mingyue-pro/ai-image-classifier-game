@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Eye, ScanSearch, Sparkles } from 'lucide-react'
 
 import { applyFixedChoice, completeStageRun, resolveApiUrl, saveStageResponse } from '../api'
@@ -38,6 +38,7 @@ export function StageOneFlow({ cases, isMovingNext, nextError, priorSummaries, o
   const [results, setResults] = useState<RecordedTest[]>([])
   const [reflectionChoice, setReflectionChoice] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submissionLock = useRef(false)
   const [reclassifyPrompt, setReclassifyPrompt] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [completedCases, setCompletedCases] = useState<ActiveStage[] | null>(null)
@@ -58,14 +59,15 @@ export function StageOneFlow({ cases, isMovingNext, nextError, priorSummaries, o
   }
 
   async function reclassify() {
-    if (!prediction || !selectedState || isSubmitting) return
+    if (!prediction || !selectedState || submissionLock.current || isSubmitting) return
+    submissionLock.current = true
     setIsSubmitting(true); setError(null); setReclassifyPrompt(null)
     try {
       const action = await applyFixedChoice(stageRun.id, { state_id: selectedState.state_id, predicted_outcome: prediction })
       setResult(action); setResults((current) => [...current, { action, prediction, method: methodName, beforeLabel: playerCase.initial_top1.label }])
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'The verified result could not be loaded. Please retry.')
-    } finally { setIsSubmitting(false) }
+    } finally { submissionLock.current = false; setIsSubmitting(false) }
   }
 
   const methodSummaries: StageOneSummary[] = results.map(({ action, prediction: recordedPrediction, method, beforeLabel }) => ({

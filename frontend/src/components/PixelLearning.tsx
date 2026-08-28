@@ -10,7 +10,7 @@ export const PIXEL_STRENGTH_DETAIL = 'The changes can increase or decrease diffe
 
 export const PIXEL_CLASSIFIER_DIRECTION_DETAIL = 'The direction of the changes is calculated using the classifier.'
 
-export const PIXEL_RECLASSIFY_EXPLANATION = 'Visual inspection shows whether the image has changed; reclassification tests whether that change affected the AI’s prediction.'
+export const PIXEL_RECLASSIFY_EXPLANATION = "Visual inspection shows whether the image has changed; reclassification tests whether that change affected the AI image classifier's prediction."
 
 export const PIXEL_LEARNING_SUMMARY = 'Even subtle pixel-level changes that are difficult to see may affect classification. Whether they actually affect the prediction cannot be assumed—it needs to be tested by reclassifying the image.'
 
@@ -36,7 +36,7 @@ export function PixelSubtleObservation() {
 
 export function PixelReclassifyConnection({ context = 'before' }: { context?: 'before' | 'after' }) {
   return context === 'before'
-    ? <aside className="pixel-learning-note pixel-reclassify-connection" aria-label="Why reclassify the image?"><strong>Why reclassify?</strong><p>{PIXEL_RECLASSIFY_EXPLANATION} Reclassify the image to obtain classification evidence.</p></aside>
+    ? <aside className="pixel-learning-note pixel-reclassify-connection" aria-label="Why reclassify the image?"><strong>Why reclassify?</strong><p>Visual inspection shows whether the image has changed; reclassification tests whether that change affected the <strong>AI image classifier&apos;s prediction</strong>. Reclassify the image to obtain classification evidence.</p></aside>
     : <aside className="pixel-learning-note pixel-reclassify-connection" aria-label="Compare RGB and classification evidence"><strong>Connect the evidence</strong><p>Finding RGB differences does not prove that the classification changed. Compare them with the reclassification result to see what happened to the AI’s prediction.</p></aside>
 }
 
