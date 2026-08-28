@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.app.database import (
+    SQLITE_BUSY_TIMEOUT_MILLISECONDS,
     create_database_engine,
     create_session_factory,
     engine,
@@ -51,6 +52,22 @@ def test_initialize_database_creates_six_tables(tmp_path: Path) -> None:
         "sessions",
         "stage_runs",
     }
+    database_engine.dispose()
+
+
+def test_file_backed_sqlite_uses_concurrent_request_pragmas(tmp_path: Path) -> None:
+    database_path = tmp_path / "research" / "concurrent.db"
+    database_engine = create_database_engine(f"sqlite:///{database_path}")
+    initialize_database(database_engine)
+
+    with database_engine.connect() as connection:
+        busy_timeout = connection.exec_driver_sql("PRAGMA busy_timeout").scalar_one()
+        journal_mode = connection.exec_driver_sql("PRAGMA journal_mode").scalar_one()
+        foreign_keys = connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one()
+
+    assert busy_timeout == SQLITE_BUSY_TIMEOUT_MILLISECONDS
+    assert journal_mode == "wal"
+    assert foreign_keys == 1
     database_engine.dispose()
 
 
